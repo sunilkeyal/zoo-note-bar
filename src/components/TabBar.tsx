@@ -9,7 +9,7 @@ export default function TabBar() {
   if (tabs.length === 0) return null;
 
   return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fafafa' }}>
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Tabs
         value={activeTabId || false}
         onChange={(_, value) => setActiveTab(value)}

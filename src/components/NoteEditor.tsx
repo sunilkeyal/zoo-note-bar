@@ -52,7 +52,7 @@ export default function NoteEditor({ note, onUpdate }: Props) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap', bgcolor: '#fafafa' }}>
+      <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap', bgcolor: 'background.paper' }}>
         <ToggleButtonGroup size="small">
           <ToggleButton
             value="bold"
