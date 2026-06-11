@@ -13,7 +13,7 @@ export default async function handler(
   if (req.method === 'GET') {
     const notes = await collection
       .find({})
-      .project({ title: 1, createdAt: 1, updatedAt: 1 })
+      .project({ title: 1, content: 1, createdAt: 1, updatedAt: 1 })
       .sort({ updatedAt: -1 })
       .toArray();
 

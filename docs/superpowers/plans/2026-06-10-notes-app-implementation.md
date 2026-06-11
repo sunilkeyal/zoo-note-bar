@@ -58,9 +58,9 @@ Expected: Build succeeds without errors.
 
 - [ ] **Step 5: Set up the project directory structure**
 
-Create empty directories:
+Create empty directories under `src/`:
 ```powershell
-New-Item -ItemType Directory -Path components, contexts, lib, types, "pages/api/notes" -Force
+New-Item -ItemType Directory -Path "src/components", "src/contexts", "src/lib", "src/types", "src/pages/api/notes" -Force
 ```
 
 ---
@@ -156,7 +156,7 @@ export default async function handler(
   if (req.method === 'GET') {
     const notes = await collection
       .find({})
-      .project({ title: 1, createdAt: 1, updatedAt: 1 })
+      .project({ title: 1, content: 1, createdAt: 1, updatedAt: 1 })  // content included so notes show content on page reload
       .sort({ updatedAt: -1 })
       .toArray();
 
@@ -421,6 +421,7 @@ interface TabContextValue {
   openTab: (note: Note) => void;
   closeTab: (noteId: string) => void;
   setActiveTab: (noteId: string) => void;
+  updateTabTitle: (noteId: string, title: string) => void;
 }
 
 const TabContext = createContext<TabContextValue | undefined>(undefined);
@@ -455,8 +456,12 @@ export function TabProvider({ children }: { children: ReactNode }) {
     setActiveTabId(noteId);
   }, []);
 
+  const updateTabTitle = useCallback((noteId: string, title: string) => {
+    setTabs((prev) => prev.map((t) => t.noteId === noteId ? { ...t, title } : t));
+  }, []);
+
   return (
-    <TabContext.Provider value={{ tabs, activeTabId, openTab, closeTab, setActiveTab }}>
+    <TabContext.Provider value={{ tabs, activeTabId, openTab, closeTab, setActiveTab, updateTabTitle }}>
       {children}
     </TabContext.Provider>
   );
@@ -861,13 +866,13 @@ export default function NoteEditor({ note, onUpdate }: Props) {
 ### Task 11: MainArea Component
 
 **Files:**
-- Create: `components/MainArea.tsx`
+- Create: `src/components/MainArea.tsx`
 
-- [ ] **Step 1: Create `components/MainArea.tsx`**
+- [ ] **Step 1: Create `src/components/MainArea.tsx`**
 
 ```typescript
-import React, { useCallback, useRef } from 'react';
-import { Box, Typography, Divider } from '@mui/material';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { Box, Typography, Divider, TextField } from '@mui/material';
 import { useNotes } from '@/contexts/NoteContext';
 import { useTabs } from '@/contexts/TabContext';
 import TabBar from './TabBar';
@@ -875,10 +880,16 @@ import NoteEditor from './NoteEditor';
 
 export default function MainArea() {
   const { notes, updateNote } = useNotes();
-  const { activeTabId } = useTabs();
+  const { activeTabId, updateTabTitle } = useTabs();
   const activeNote = notes.find((n) => n._id === activeTabId);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingUpdate = useRef<{ id: string; content: string } | null>(null);
+  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [title, setTitle] = useState('');
+
+  useEffect(() => {
+    if (activeNote) setTitle(activeNote.title);
+  }, [activeNote?._id]);
 
   const handleUpdate = useCallback((id: string, content: string) => {
     pendingUpdate.current = { id, content };
@@ -891,15 +902,38 @@ export default function MainArea() {
     }, 1000);
   }, [updateNote]);
 
+  const handleTitleChange = useCallback((id: string, value: string) => {
+    setTitle(value);
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    titleDebounceRef.current = setTimeout(() => {
+      updateNote(id, { title: value });
+      updateTabTitle(id, value);
+    }, 600);
+  }, [updateNote, updateTabTitle]);
+
   return (
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TabBar />
       {activeNote ? (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-            <Typography variant="h5" fontWeight={600}>
-              {activeNote.title}
-            </Typography>
+            <TextField
+              fullWidth
+              variant="standard"
+              value={title}
+              onChange={(e) => handleTitleChange(activeNote._id, e.target.value)}
+              slotProps={{
+                input: {
+                  sx: {
+                    fontSize: '1.5rem',
+                    fontWeight: 600,
+                    '&:before': { borderBottom: 'none' },
+                    '&:hover:not(.Mui-disabled, .Mui-error):before': { borderBottom: 'none' },
+                    '&:after': { borderBottom: '2px solid' },
+                  },
+                },
+              }}
+            />
             <Typography variant="caption" color="text.secondary">
               Last updated: {new Date(activeNote.updatedAt).toLocaleString()}
             </Typography>
@@ -1028,15 +1062,27 @@ Expected: Build succeeds without errors.
 - Create: `docker-compose.yml`
 - Create: `.dockerignore`
 
-- [ ] **Step 1: Create `Dockerfile`**
+- [ ] **Step 1: Create `Dockerfile` (multi-stage)**
 
 ```dockerfile
-FROM node:20-alpine AS base
+FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
 CMD ["npm", "start"]
 ```
@@ -1079,10 +1125,12 @@ volumes:
   mongo-data:
 ```
 
-- [ ] **Step 4: Verify Docker build**
+- [ ] **Step 4: Verify Docker build (with no cache)**
 
-Run: `docker-compose build`
+Run: `docker compose build --no-cache`
 Expected: Build succeeds.
+
+**Note:** Always use `--no-cache` when the source directory structure changes (e.g., moving `pages/` to `src/pages/`), otherwise Docker's layer cache may serve a stale build.
 
 - [ ] **Step 5: Add startup script for development convenience**
 
@@ -1110,11 +1158,13 @@ Expected: Server starts on http://localhost:3000
 
 1. Open http://localhost:3000 — should show empty UI with "Select a note or create a new one"
 2. Click "+" in sidebar — creates "Untitled Note", opens in tab
-3. Type content in TipTap editor — should auto-save after 1s debounce
-4. Try Bold/Italic/Underline buttons — text styling works
-5. Change heading level and font — styling applies
-6. Create a second note — new tab appears
-7. Switch between tabs — content loads correctly
-8. Hover over note in sidebar — delete icon appears
-9. Click delete icon — confirmation dialog shows
-10. Confirm delete — note deleted, tab closes
+3. Click note title in MainArea — inline TextField appears, edit title, wait 600ms — auto-saves, tab title syncs
+4. Type content in TipTap editor — should auto-save after 1s debounce
+5. Try Bold/Italic/Underline buttons — text styling works
+6. Change heading level and font — styling applies
+7. Create a second note — new tab appears
+8. Switch between tabs — content loads correctly
+9. Hover over note in sidebar — delete icon appears
+10. Click delete icon — confirmation dialog shows
+11. Confirm delete — note deleted, tab closes
+12. Reload browser — existing notes show their content (not empty)

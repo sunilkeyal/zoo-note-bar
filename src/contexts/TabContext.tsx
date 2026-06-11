@@ -12,6 +12,7 @@ interface TabContextValue {
   openTab: (note: Note) => void;
   closeTab: (noteId: string) => void;
   setActiveTab: (noteId: string) => void;
+  updateTabTitle: (noteId: string, title: string) => void;
 }
 
 const TabContext = createContext<TabContextValue | undefined>(undefined);
@@ -46,8 +47,12 @@ export function TabProvider({ children }: { children: ReactNode }) {
     setActiveTabId(noteId);
   }, []);
 
+  const updateTabTitle = useCallback((noteId: string, title: string) => {
+    setTabs((prev) => prev.map((t) => t.noteId === noteId ? { ...t, title } : t));
+  }, []);
+
   return (
-    <TabContext.Provider value={{ tabs, activeTabId, openTab, closeTab, setActiveTab }}>
+    <TabContext.Provider value={{ tabs, activeTabId, openTab, closeTab, setActiveTab, updateTabTitle }}>
       {children}
     </TabContext.Provider>
   );

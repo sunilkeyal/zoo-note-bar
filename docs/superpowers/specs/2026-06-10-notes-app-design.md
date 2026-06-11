@@ -40,13 +40,15 @@ A single-page note-taking application with a rich text editor, tabbed interface,
 |-----------|---------------|-------------|
 | AppHeader | `AppBar` + `Toolbar` + `Typography` | Top bar with notes icon and "Notes" title |
 | NotesSidebar | `Drawer` (permanent) + `List` | Left sidebar with list of notes |
-| MainArea | Container | Right side: tabs + editor |
+| MainArea | Container | Right side: tabs + editor + inline editable title |
 | TabBar | `Tabs` + `Tab` | Browser-style tabs for open notes |
 | NoteEditor | TipTap + `ToggleButtonGroup` + `Select` | Rich text editor with toolbar |
 | DeleteConfirmDialog | `Dialog` + `DialogTitle` + `DialogActions` | Confirm delete prompt |
 
 ### Key UX Decisions
 
+- **Title editing** via inline `TextField` in MainArea, debounced auto-save (600ms)
+- **Tab title** stays in sync with note title via `updateTabTitle` in TabContext
 - **Last updated** date shown below note title in the editor detail view (not in sidebar)
 - **Divider line** between date and editor content
 - **Sidebar** shows note titles only (no dates)
@@ -71,7 +73,7 @@ A single-page note-taking application with a rich text editor, tabbed interface,
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/notes` | List all notes (sorted by updatedAt desc) |
+| GET | `/api/notes` | List all notes with title, content, createdAt, updatedAt (sorted by updatedAt desc) |
 | POST | `/api/notes` | Create note `{ title }` |
 | PUT | `/api/notes/[id]` | Update note `{ title?, content? }` |
 | DELETE | `/api/notes/[id]` | Delete note |
@@ -82,33 +84,42 @@ A single-page note-taking application with a rich text editor, tabbed interface,
 - **UI:** MUI (Material UI)
 - **Rich Text:** TipTap (ProseMirror-based)
 - **Database:** MongoDB (native driver)
-- **State Management:** React Context (NoteContext + TabContext)
+- **State Management:** React Context — NoteContext (notes CRUD), TabContext (tabs, active tab, updateTabTitle for tab label sync)
 
 ## Project Structure
 
 ```
 note-app/
-├── pages/
-│   ├── _app.tsx
-│   ├── _document.tsx
-│   └── index.tsx
-├── components/
-│   ├── AppHeader.tsx
-│   ├── NotesSidebar.tsx
-│   ├── MainArea.tsx
-│   ├── TabBar.tsx
-│   ├── NoteEditor.tsx
-│   └── DeleteConfirmDialog.tsx
-├── contexts/
-│   ├── NoteContext.tsx
-│   └── TabContext.tsx
-├── pages/api/
-│   ├── notes.ts
-│   └── notes/[id].ts
-├── lib/
-│   └── mongodb.ts
+├── src/
+│   ├── pages/
+│   │   ├── _app.tsx
+│   │   ├── _document.tsx
+│   │   ├── index.tsx
+│   │   └── api/
+│   │       ├── notes.ts
+│   │       └── notes/[id].ts
+│   ├── components/
+│   │   ├── AppHeader.tsx
+│   │   ├── NotesSidebar.tsx
+│   │   ├── MainArea.tsx
+│   │   ├── TabBar.tsx
+│   │   ├── NoteEditor.tsx
+│   │   └── DeleteConfirmDialog.tsx
+│   ├── contexts/
+│   │   ├── NoteContext.tsx
+│   │   └── TabContext.tsx
+│   ├── lib/
+│   │   └── mongodb.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── styles/
+│   └── ...
+├── public/
 ├── docker-compose.yml
 ├── Dockerfile
+├── next.config.js
+├── tsconfig.json
+├── .env.local
 └── package.json
 ```
 
@@ -116,9 +127,10 @@ note-app/
 
 1. App loads → `NoteContext` fetches `GET /api/notes` → sidebar populates
 2. Click note in sidebar → `TabContext` opens/activates tab → `NoteEditor` loads content
-3. Edit content → TipTap fires onChange → debounced `PUT /api/notes/[id]` saves
-4. Click "+" → `POST /api/notes` creates new note → sidebar refreshes
-5. Hover + click trash → `Dialog` confirms → `DELETE /api/notes/[id]` → tab closes, sidebar refreshes
+3. Edit content → TipTap fires onChange → debounced (1s) `PUT /api/notes/[id]` saves
+4. Edit title → inline `TextField` onChange → debounced (600ms) `PUT /api/notes/[id]` saves title + `updateTabTitle` updates tab label
+5. Click "+" → `POST /api/notes` creates new note → sidebar refreshes
+6. Hover + click trash → `Dialog` confirms → `DELETE /api/notes/[id]` → tab closes, sidebar refreshes
 
 ## Deployment
 
