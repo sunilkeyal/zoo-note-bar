@@ -160,7 +160,7 @@ export default function NoteEditor({ note, onUpdate }: Props) {
         </Select>
       </Box>
 
-      <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, px: 2, py: 2, pl: 4, overflow: 'auto' }}>
         <EditorContent editor={editor} />
       </Box>
 
