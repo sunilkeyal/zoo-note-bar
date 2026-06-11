@@ -7,9 +7,9 @@ Redesign the notes app UI by removing the tab-based navigation and applying a co
 ## Scope
 
 - Remove TabBar and tab navigation context
-- Redesign sidebar with search, note previews, timestamps
+- Redesign sidebar with search and cleaner styling
 - Slim frosted-glass header
-- Floating toolbar
+- Top toolbar strip (always visible)
 - Improved typography and reading layout
 - Subtle animations and micro-interactions
 
@@ -25,17 +25,16 @@ Redesign the notes app UI by removing the tab-based navigation and applying a co
 ┌─────────────────────────────────────┐
 │  Header (40px, frosted glass)       │
 ├──────────┬──────────────────────────┤
-│ Sidebar  │  Editor Area             │
-│ 280px    │  Title (22px bold)       │
-│          │  Timestamp               │
-│ Search   │  Divider                 │
-│          │  Content (max 720px)     │
-│ Note     │  ┌──────────────────┐    │
-│ list     │  │                  │    │
-│ with     │  │                  │    │
-│ previews │  │                  │    │
-│          │  └──────────────────┘    │
-│          │       [Floating Toolbar] │
+│ Sidebar  │  Editor Area                │
+│ 280px    │  [Toolbar Strip]            │
+│          │  Title (22px bold)          │
+│ Search   │  Timestamp                  │
+│          │  Divider                    │
+│ Note     │  Content (max 960px)        │
+│ list     │  ┌─────────────────────┐    │
+│          │  │                     │    │
+│          │  │                     │    │
+│          │  └─────────────────────┘    │
 ├──────────┴──────────────────────────┤
 │                                     │
 └─────────────────────────────────────┘
@@ -45,7 +44,7 @@ Key changes:
 - **TabBar removed entirely** — single note displayed at a time
 - **Clicking sidebar note** directly opens it in the editor (no tab concept)
 - **Sidebar widened** from 260px to 280px
-- **Editor area** has max-width of 720px for comfortable reading
+- **Editor area** has max-width of 960px, left-aligned
 
 ## 2. Sidebar
 
@@ -55,7 +54,7 @@ Key changes:
 - When search is active, only matching notes shown
 
 ### Note Items
-- Display: title (13px, 600 weight), preview line (11px, gray), relative timestamp (10px)
+- Display: title (13px, 600 weight) only
 - Active note: white background, blue left border (3px, #4f6ef7)
 - Inactive: transparent background, transparent left border
 - Hover state: subtle background shift
@@ -77,22 +76,19 @@ Key changes:
 ## 4. Editor Toolbar
 
 ### Position
-- Floating toolbar instead of fixed strip at top of editor
-- Fixed at bottom-center of the editor viewport (always visible when a note is open)
-- Replaces the existing top-of-editor toolbar strip entirely
+- Strip at top of editor, just below the title/divider (replaces the floating pill design)
+- Always visible when a note is open
 
 ### Design
-- Pill-shaped: `border-radius: 10px`
-- White background with border and shadow: `box-shadow: 0 2px 12px rgba(0,0,0,0.08)`
-- Compact layout with dividers between groups
-- Same formatting options preserved: Bold, Italic, Underline, Bullet List, Numbered List, Heading selector, Font Size selector, Font Family selector
+- Compact horizontal strip with dividers between groups
+- Same formatting options: Bold, Italic, Underline, Bullet List, Numbered List, Heading selector, Font Size selector, Font Family selector
 
 ## 5. Typography & Reading
 
 - **Font stack:** `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` (system-ui, no external fonts)
 - **Body text:** 15px, line-height 1.7
-- **Title:** 22px, weight 700
-- **Editor max-width:** 720px (centered with auto margins)
+- **Title:** 1.35rem, weight 700
+- **Editor max-width:** 960px (left-aligned with 40px padding)
 - **Editor padding:** 24px 40px
 - **Timestamp:** 12px, secondary color, between title and content divider
 - **Content divider:** 1px solid `#eee` (light) / appropriate dark value
@@ -106,18 +102,14 @@ All animations use CSS transitions only (no animation library):
 | Sidebar note hover | background-color | 0.15s | ease |
 | Active note border-left | opacity | 0.2s | ease |
 | Note content open | opacity | 0.2s | ease |
-| Toolbar appear | opacity + translateY | 0.2s | ease |
 | Delete icon opacity | opacity | 0.15s | ease |
-| Search filter collapse | max-height + opacity | 0.2s | ease |
 | Theme toggle icon | transform (rotate) | 0.3s | ease |
-| Sidebar width transition | width | 0.3s | ease |
 
 ## Dark Mode
 
 - All frosted glass / rgba backgrounds adjust for dark palette
 - Sidebar background: darker surface color
 - Active note: darker highlight
-- Floating toolbar: dark surface with appropriate shadow
 - Accent color (#4f6ef7) adapts by adjusting contrast
 
 ## Files to Change
@@ -128,7 +120,7 @@ All animations use CSS transitions only (no animation library):
 | `src/components/MainArea.tsx` | Remove TabBar import and usage; remove tab context usage; update layout styles |
 | `src/components/NotesSidebar.tsx` | Add search input, preview lines, timestamps; restyle items; move new note button; remove TabContext usage |
 | `src/components/AppHeader.tsx` | Reduce height to 40px, add frosted glass effect |
-| `src/components/NoteEditor.tsx` | Convert toolbar to floating pill component |
+| `src/components/NoteEditor.tsx` | Convert toolbar to top strip component |
 | `src/contexts/TabContext.tsx` | **Remove** entire file — move `activeNoteId` state into `NoteContext` |
 | `src/contexts/NoteContext.tsx` | Add `activeNoteId` state + `setActiveNoteId` + `activeNote` derived value |
 | `src/pages/index.tsx` | Remove TabProvider wrapper, simplify to NoteProvider + ThemeProvider |

@@ -4,7 +4,7 @@
 
 **Goal:** Remove tab-based navigation and apply a cohesive visual refresh (Modern & Structured direction).
 
-**Architecture:** Remove TabContext and TabBar component entirely. Move `activeNoteId` state into NoteContext. Sidebar gains search, previews, timestamps. Header slimmed to 40px with frosted glass. Editor toolbar becomes a floating pill. All animations via CSS transitions.
+**Architecture:** Remove TabContext and TabBar component entirely. Move `activeNoteId` state into NoteContext. Sidebar gains search and cleaner styling. Header slimmed to 40px with frosted glass. Editor toolbar is a top strip. All animations via CSS transitions.
 
 **Tech Stack:** Next.js, MUI v9, TipTap, Emotion
 
@@ -152,7 +152,7 @@ git commit -m "refactor: remove TabProvider from page wrappers"
 
 ---
 
-### Task 3: Update Sidebar — Search, Previews, Timestamps, Restyling
+### Task 3: Update Sidebar — Search, Restyling
 
 **Files:**
 - Modify: `src/components/NotesSidebar.tsx`
@@ -266,11 +266,6 @@ export default function NotesSidebar() {
               >
                 <ListItemText
                   primary={note.title}
-                  secondary={
-                    <Typography variant="caption" color="text.secondary" noWrap component="span">
-                      {note.content?.replace(/<[^>]*>/g, '').slice(0, 80) || 'Empty note'}
-                    </Typography>
-                  }
                   slotProps={{
                     primary: {
                       noWrap: true,
@@ -307,7 +302,7 @@ export default function NotesSidebar() {
 
 Key changes from current:
 - Search bar with TextField and SearchIcon
-- Note preview (strip HTML tags, first 80 chars)
+- Title-only display (no note preview/secondary text)
 - Active note has blue left border (3px)
 - Delete icon hidden until hover on item
 - Sidebar top offset matches 40px header
@@ -318,7 +313,7 @@ Key changes from current:
 
 ```bash
 git add -A
-git commit -m "feat: redesign sidebar with search, previews, timestamps"
+git commit -m "feat: redesign sidebar with search and restyling"
 ```
 
 ---
@@ -439,7 +434,7 @@ export default function MainArea() {
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'background.default' }}>
       {activeNote ? (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Box sx={{ px: '40px', pt: 3, pb: 0, maxWidth: 720, mx: 'auto', width: '100%' }}>
+          <Box sx={{ px: '40px', pt: 3, pb: 0, maxWidth: 960, width: '100%' }}>
             <TextField
               fullWidth
               variant="standard"
@@ -462,7 +457,7 @@ export default function MainArea() {
             </Typography>
             <Divider sx={{ mt: 1, mb: 0 }} />
           </Box>
-          <Box sx={{ flex: 1, overflow: 'auto', px: '40px', maxWidth: 720, mx: 'auto', width: '100%', py: 2 }}>
+          <Box sx={{ flex: 1, overflow: 'auto', px: '40px', maxWidth: 960, width: '100%', py: 2 }}>
             <NoteEditor note={activeNote} onUpdate={handleUpdate} />
           </Box>
         </Box>
@@ -481,19 +476,19 @@ export default function MainArea() {
 Key changes:
 - No `TabBar` import or usage
 - Uses `activeNote` / `activeNoteId` from `useNotes()` instead of `useTabs()`
-- Editor content area has max-width 720px centered with `mx: 'auto'`
+- Editor content area has max-width 960px left-aligned
 - Title styling: 1.35rem / 700 weight
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor: update MainArea to single-note view with centered layout"
+git commit -m "refactor: update MainArea to single-note view with left-aligned layout"
 ```
 
 ---
 
-### Task 6: Floating Toolbar in NoteEditor
+### Task 6: Toolbar in NoteEditor
 
 **Files:**
 - Modify: `src/components/NoteEditor.tsx`
@@ -502,175 +497,34 @@ git commit -m "refactor: update MainArea to single-note view with centered layou
 
 Read the file first.
 
-- [ ] **Step 2: Convert toolbar to floating pill at bottom-center**
+- [ ] **Step 2: Keep toolbar as top strip (always visible)**
 
-Replace the toolbar section (the Box with `sx={{ p: 1, borderBottom: 1, ... }}`) with a floating pill at the bottom of the editor container:
-
-```tsx
-// Replace the toolbar Box at top with this floating pill at bottom:
-
-<Box
-  sx={{
-    position: 'sticky',
-    bottom: 16,
-    alignSelf: 'center',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 0.3,
-    px: 1.5,
-    py: 0.5,
-    bgcolor: 'background.paper',
-    border: 1,
-    borderColor: 'divider',
-    borderRadius: 3,
-    boxShadow: 2,
-    mx: 'auto',
-    zIndex: 10,
-    transition: 'opacity 0.2s ease, transform 0.2s ease',
-  }}
->
-  {/* same toolbar content: ToggleButtonGroup for bold/italic/underline */}
-  {/* same toolbar content: ToggleButtonGroup for lists */}
-  {/* same toolbar content: Select for headings, font size, font family */}
-</Box>
-```
-
-The editor container needs `display: 'flex', flexDirection: 'column'` so the sticky toolbar works. Wrap the `EditorContent` in a flex-grow box and put the toolbar after it.
-
-The full component structure should be:
+Keep the toolbar at the top of the editor as a horizontal strip with a bottom border. This is the original position — no floating pill. Structure:
 
 ```tsx
 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+  {/* Toolbar strip at top */}
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, px: 1.5, py: 0.5, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+    {/* ToggleButtonGroup for bold/italic/underline */}
+    {/* Divider */}
+    {/* ToggleButtonGroup for lists */}
+    {/* Divider */}
+    {/* Select for headings, font size, font family */}
+  </Box>
+  {/* Editor content */}
   <Box sx={{ flex: 1 }}>
     <EditorContent editor={editor} />
-  </Box>
-
-  {/* Floating Toolbar */}
-  <Box
-    sx={{
-      position: 'sticky',
-      bottom: 16,
-      alignSelf: 'center',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 0.3,
-      px: 1.5,
-      py: 0.5,
-      bgcolor: 'background.paper',
-      border: 1,
-      borderColor: 'divider',
-      borderRadius: 3,
-      boxShadow: (theme) => `0 2px 12px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.08)'}`,
-      mx: 'auto',
-      zIndex: 10,
-      transition: 'opacity 0.2s ease, transform 0.2s ease',
-    }}
-  >
-    <ToggleButtonGroup size="small" exclusive={false}>
-      <ToggleButton
-        value="bold"
-        selected={editor.isActive('bold')}
-        onChange={() => editor.chain().focus().toggleBold().run()}
-        sx={{ border: 0, p: 0.5, minWidth: 30, borderRadius: 1 }}
-      >
-        <FormatBoldIcon fontSize="small" />
-      </ToggleButton>
-      <ToggleButton
-        value="italic"
-        selected={editor.isActive('italic')}
-        onChange={() => editor.chain().focus().toggleItalic().run()}
-        sx={{ border: 0, p: 0.5, minWidth: 30, borderRadius: 1 }}
-      >
-        <FormatItalicIcon fontSize="small" />
-      </ToggleButton>
-      <ToggleButton
-        value="underline"
-        selected={editor.isActive('underline')}
-        onChange={() => editor.chain().focus().toggleUnderline().run()}
-        sx={{ border: 0, p: 0.5, minWidth: 30, borderRadius: 1 }}
-      >
-        <FormatUnderlinedIcon fontSize="small" />
-      </ToggleButton>
-    </ToggleButtonGroup>
-
-    <Divider orientation="vertical" flexItem sx={{ mx: 0.3 }} />
-
-    <ToggleButtonGroup size="small" exclusive={false}>
-      <ToggleButton
-        value="bulletList"
-        selected={editor.isActive('bulletList')}
-        onChange={() => editor.chain().focus().toggleBulletList().run()}
-        sx={{ border: 0, p: 0.5, minWidth: 30, borderRadius: 1 }}
-      >
-        <FormatListBulletedIcon fontSize="small" />
-      </ToggleButton>
-      <ToggleButton
-        value="orderedList"
-        selected={editor.isActive('orderedList')}
-        onChange={() => editor.chain().focus().toggleOrderedList().run()}
-        sx={{ border: 0, p: 0.5, minWidth: 30, borderRadius: 1 }}
-      >
-        <FormatListNumberedIcon fontSize="small" />
-      </ToggleButton>
-    </ToggleButtonGroup>
-
-    <Divider orientation="vertical" flexItem sx={{ mx: 0.3 }} />
-
-    <Select
-      size="small"
-      value={
-        editor.isActive('heading', { level: 1 }) ? 'h1' :
-        editor.isActive('heading', { level: 2 }) ? 'h2' :
-        editor.isActive('heading', { level: 3 }) ? 'h3' : 'paragraph'
-      }
-      onChange={(e) => {
-        const val = e.target.value;
-        const chain = editor.chain().focus().setParagraph();
-        if (val === 'h1') chain.unsetFontFamily().unsetFontSize().toggleHeading({ level: 1 });
-        else if (val === 'h2') chain.unsetFontFamily().unsetFontSize().toggleHeading({ level: 2 });
-        else if (val === 'h3') chain.unsetFontFamily().unsetFontSize().toggleHeading({ level: 3 });
-        chain.run();
-      }}
-      sx={{ minWidth: 100, height: 30, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.3 } }}
-    >
-      {HEADINGS.map((h) => (
-        <MenuItem key={h.value} value={h.value}>{h.label}</MenuItem>
-      ))}
-    </Select>
-
-    <Select
-      size="small"
-      disabled={editor.isActive('heading')}
-      value={editor.getAttributes('textStyle').fontSize?.replace('px', '') || '16'}
-      onChange={(e) => editor.chain().focus().setFontSize(e.target.value + 'px').run()}
-      sx={{ minWidth: 70, height: 30, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.3 } }}
-    >
-      {FONT_SIZES.map((s) => (
-        <MenuItem key={s} value={s}>{s}</MenuItem>
-      ))}
-    </Select>
-
-    <Select
-      size="small"
-      value={editor.getAttributes('textStyle').fontFamily || 'Arial'}
-      onChange={(e) => editor.chain().focus().setFontFamily(e.target.value).run()}
-      sx={{ minWidth: 100, height: 30, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.3 } }}
-    >
-      {FONTS.map((f) => (
-        <MenuItem key={f} value={f} style={{ fontFamily: f }}>{f}</MenuItem>
-      ))}
-    </Select>
   </Box>
 </Box>
 ```
 
-Note: Remove `pb: 2` or `pl: 4` from the outer editor content box — MainArea now handles the padding.
+Note: Remove `pb: 2` or `pl: 4` from the outer editor content box — MainArea now handles the padding. No selection-based show/hide logic.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: floating pill toolbar at bottom of editor"
+git commit -m "feat: top toolbar strip in editor"
 ```
 
 ---
@@ -698,7 +552,7 @@ Read the file first.
   min-height: 200px;
   line-height: 1.7;
   font-size: 15px;
-  max-width: 720px;
+  max-width: 960px;
   color: inherit;
 }
 .ProseMirror p { margin: 0 0 0.5rem 0; }
@@ -770,11 +624,11 @@ npm run dev
 
 Verify:
 - App loads without errors
-- Sidebar shows notes with search, previews, timestamps
+- Sidebar shows notes with search, no preview text
 - Clicking a note opens it in the editor (no TabBar)
 - Header is slim (40px) with frosted glass
-- Editor has max-width 720px centered layout
-- Toolbar appears as floating pill at bottom
+- Editor has max-width 960px left-aligned
+- Toolbar is a top strip, always visible
 - Dark mode toggle works
 - Creating/deleting notes works
 

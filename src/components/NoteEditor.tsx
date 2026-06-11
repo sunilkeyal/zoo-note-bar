@@ -63,28 +63,16 @@ export default function NoteEditor({ note, onUpdate }: Props) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ flex: 1 }}>
-        <EditorContent editor={editor} />
-      </Box>
-
       <Box
         sx={{
-          position: 'sticky',
-          bottom: 16,
-          alignSelf: 'center',
-          display: 'inline-flex',
+          display: 'flex',
           alignItems: 'center',
           gap: 0.3,
           px: 1.5,
           py: 0.5,
           bgcolor: 'background.paper',
-          border: 1,
+          borderBottom: 1,
           borderColor: 'divider',
-          borderRadius: 3,
-          boxShadow: (theme: any) => `0 2px 12px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.08)'}`,
-          mx: 'auto',
-          zIndex: 10,
-          transition: 'opacity 0.2s ease, transform 0.2s ease',
         }}
       >
         <ToggleButtonGroup size="small" exclusive={false}>
@@ -181,6 +169,10 @@ export default function NoteEditor({ note, onUpdate }: Props) {
             <MenuItem key={f} value={f} style={{ fontFamily: f }}>{f}</MenuItem>
           ))}
         </Select>
+      </Box>
+
+      <Box sx={{ flex: 1 }}>
+        <EditorContent editor={editor} />
       </Box>
     </Box>
   );
