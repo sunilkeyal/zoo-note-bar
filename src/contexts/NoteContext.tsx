@@ -5,6 +5,9 @@ interface NoteContextValue {
   notes: Note[];
   loading: boolean;
   error: string | null;
+  activeNoteId: string | null;
+  activeNote: Note | null;
+  setActiveNoteId: (id: string | null) => void;
   fetchNotes: () => Promise<void>;
   createNote: (input: NoteInput) => Promise<Note | null>;
   updateNote: (id: string, update: NoteUpdate) => Promise<Note | null>;
@@ -17,6 +20,9 @@ export function NoteProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+
+  const activeNote = notes.find((n) => n._id === activeNoteId) ?? null;
 
   const fetchNotes = useCallback(async () => {
     try {
@@ -88,7 +94,10 @@ export function NoteProvider({ children }: { children: ReactNode }) {
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
   return (
-    <NoteContext.Provider value={{ notes, loading, error, fetchNotes, createNote, updateNote, deleteNote }}>
+    <NoteContext.Provider value={{
+      notes, loading, error, activeNoteId, activeNote, setActiveNoteId,
+      fetchNotes, createNote, updateNote, deleteNote,
+    }}>
       {children}
     </NoteContext.Provider>
   );

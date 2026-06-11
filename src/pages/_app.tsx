@@ -3,7 +3,6 @@ import type { AppProps } from 'next/app';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import '@/styles/globals.css';
 import { NoteProvider } from '@/contexts/NoteContext';
-import { TabProvider } from '@/contexts/TabContext';
 import { ThemeContextProvider, useTheme } from '@/contexts/ThemeContext';
 
 function ThemedApp({ children }: { children: React.ReactNode }) {
@@ -37,9 +36,7 @@ export default function App({ Component, pageProps }: AppProps) {
     <ThemeContextProvider>
       <ThemedApp>
         <NoteProvider>
-          <TabProvider>
-            <Component {...pageProps} />
-          </TabProvider>
+          <Component {...pageProps} />
         </NoteProvider>
       </ThemedApp>
     </ThemeContextProvider>
