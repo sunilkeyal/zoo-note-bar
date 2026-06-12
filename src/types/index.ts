@@ -1,9 +1,17 @@
 import { ObjectId } from 'mongodb';
 
+export interface Folder {
+  _id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Note {
   _id: string;
   title: string;
   content: string;
+  folderId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -11,11 +19,13 @@ export interface Note {
 export interface NoteInput {
   title: string;
   content?: string;
+  folderId?: string;
 }
 
 export interface NoteUpdate {
   title?: string;
   content?: string;
+  folderId?: string;
 }
 
 export interface ApiResponse<T> {
