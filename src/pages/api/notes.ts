@@ -13,7 +13,7 @@ export default async function handler(
   if (req.method === 'GET') {
     const notes = await collection
       .find({})
-      .project({ title: 1, content: 1, createdAt: 1, updatedAt: 1 })
+      .project({ title: 1, content: 1, folderId: 1, createdAt: 1, updatedAt: 1 })
       .sort({ updatedAt: -1 })
       .toArray();
 
@@ -21,6 +21,7 @@ export default async function handler(
       _id: n._id.toString(),
       title: n.title,
       content: n.content || '',
+      folderId: n.folderId || undefined,
       createdAt: n.createdAt.toISOString(),
       updatedAt: n.updatedAt.toISOString(),
     }));
@@ -29,23 +30,27 @@ export default async function handler(
   }
 
   if (req.method === 'POST') {
-    const { title } = req.body as NoteInput;
+    const { title, folderId } = req.body as NoteInput;
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, error: 'Title is required' });
     }
 
     const now = new Date();
-    const result = await collection.insertOne({
+    const doc: Record<string, unknown> = {
       title: title.trim(),
       content: '',
       createdAt: now,
       updatedAt: now,
-    });
+    };
+    if (folderId) doc.folderId = folderId;
+
+    const result = await collection.insertOne(doc);
 
     const note: Note = {
       _id: result.insertedId.toString(),
       title: title.trim(),
       content: '',
+      folderId: folderId || undefined,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
