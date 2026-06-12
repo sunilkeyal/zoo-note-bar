@@ -3,9 +3,15 @@ import { AppBar, Toolbar, Typography, Box, IconButton, Tooltip } from '@mui/mate
 import NoteAltIcon from '@mui/icons-material/NoteAlt';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import MenuIcon from '@mui/icons-material/Menu';
 import { useTheme } from '@/contexts/ThemeContext';
 
-export default function AppHeader() {
+interface AppHeaderProps {
+  onToggleSidebar?: () => void;
+  showMenuButton?: boolean;
+}
+
+export default function AppHeader({ onToggleSidebar, showMenuButton }: AppHeaderProps) {
   const { mode, toggleTheme } = useTheme();
 
   return (
@@ -25,6 +31,11 @@ export default function AppHeader() {
       }}
     >
       <Toolbar variant="dense" sx={{ minHeight: '40px !important', px: 2 }}>
+        {showMenuButton && (
+          <IconButton color="inherit" size="small" onClick={onToggleSidebar} sx={{ mr: 1 }}>
+            <MenuIcon fontSize="small" />
+          </IconButton>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
           <NoteAltIcon fontSize="small" />
           <Typography variant="h6" component="h1" noWrap sx={{ fontSize: '0.95rem', fontWeight: 600 }}>
