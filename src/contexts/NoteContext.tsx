@@ -1,28 +1,52 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { Note, NoteInput, NoteUpdate, ApiResponse } from '@/types';
+import React, {
+  createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode,
+} from 'react';
+import { Note, Folder, NoteInput, NoteUpdate, ApiResponse } from '@/types';
 
 interface NoteContextValue {
   notes: Note[];
+  folders: Folder[];
+  expandedFolders: Set<string>;
   loading: boolean;
   error: string | null;
   activeNoteId: string | null;
   activeNote: Note | null;
   setActiveNoteId: (id: string | null) => void;
   fetchNotes: () => Promise<void>;
+  fetchFolders: () => Promise<void>;
   createNote: (input: NoteInput) => Promise<Note | null>;
   updateNote: (id: string, update: NoteUpdate) => Promise<Note | null>;
   deleteNote: (id: string) => Promise<boolean>;
+  createFolder: (name: string) => Promise<Folder | null>;
+  renameFolder: (id: string, name: string) => Promise<Folder | null>;
+  deleteFolder: (id: string) => Promise<{ deletedNotesCount: number } | null>;
+  moveNote: (noteId: string, folderId: string | null) => Promise<Note | null>;
+  toggleFolder: (folderId: string) => void;
 }
 
 const NoteContext = createContext<NoteContextValue | undefined>(undefined);
 
 export function NoteProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
   const activeNote = notes.find((n) => n._id === activeNoteId) ?? null;
+
+  const toggleFolder = useCallback((folderId: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
+      return next;
+    });
+  }, []);
 
   const fetchNotes = useCallback(async () => {
     try {
@@ -38,6 +62,18 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       setError('Failed to fetch notes');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchFolders = useCallback(async () => {
+    try {
+      const res = await fetch('/api/folders');
+      const json: ApiResponse<Folder[]> = await res.json();
+      if (json.success && json.data) {
+        setFolders(json.data);
+      }
+    } catch {
+      // silent — folders are optional UX
     }
   }, []);
 
@@ -91,13 +127,113 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => { fetchNotes(); }, [fetchNotes]);
+  const createFolder = useCallback(async (name: string): Promise<Folder | null> => {
+    try {
+      const res = await fetch('/api/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json: ApiResponse<Folder> = await res.json();
+      if (json.success && json.data) {
+        setFolders((prev) => [...prev, json.data!]);
+        return json.data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const renameFolder = useCallback(async (id: string, name: string): Promise<Folder | null> => {
+    try {
+      const res = await fetch(`/api/folders/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json: ApiResponse<Folder> = await res.json();
+      if (json.success && json.data) {
+        setFolders((prev) => prev.map((f) => (f._id === id ? json.data! : f)));
+        return json.data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const deleteFolder = useCallback(async (id: string): Promise<{ deletedNotesCount: number } | null> => {
+    try {
+      const res = await fetch(`/api/folders/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setFolders((prev) => prev.filter((f) => f._id !== id));
+        setNotes((prev) => prev.filter((n) => n.folderId !== id));
+        return json.data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const moveNote = useCallback(async (noteId: string, folderId: string | null): Promise<Note | null> => {
+    try {
+      const body: Record<string, unknown> = {};
+      if (folderId !== null) {
+        body.folderId = folderId;
+      } else {
+        body.folderId = null;
+      }
+      const res = await fetch(`/api/notes/${noteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json: ApiResponse<Note> = await res.json();
+      if (json.success && json.data) {
+        setNotes((prev) => prev.map((n) => (n._id === noteId ? json.data! : n)));
+        return json.data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotes();
+    fetchFolders();
+  }, [fetchNotes, fetchFolders]);
+
+  const value = useMemo<NoteContextValue>(() => ({
+    notes,
+    folders,
+    expandedFolders,
+    loading,
+    error,
+    activeNoteId,
+    activeNote,
+    setActiveNoteId,
+    fetchNotes,
+    fetchFolders,
+    createNote,
+    updateNote,
+    deleteNote,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    moveNote,
+    toggleFolder,
+  }), [
+    notes, folders, expandedFolders, loading, error, activeNoteId, activeNote,
+    setActiveNoteId, fetchNotes, fetchFolders, createNote, updateNote, deleteNote,
+    createFolder, renameFolder, deleteFolder, moveNote, toggleFolder,
+  ]);
 
   return (
-    <NoteContext.Provider value={{
-      notes, loading, error, activeNoteId, activeNote, setActiveNoteId,
-      fetchNotes, createNote, updateNote, deleteNote,
-    }}>
+    <NoteContext.Provider value={value}>
       {children}
     </NoteContext.Provider>
   );
