@@ -12,6 +12,7 @@ export interface Note {
   title: string;
   content: string;
   folderId?: string;
+  position: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,12 +21,14 @@ export interface NoteInput {
   title: string;
   content?: string;
   folderId?: string;
+  position?: number;
 }
 
 export interface NoteUpdate {
   title?: string;
   content?: string;
   folderId?: string;
+  position?: number;
 }
 
 export interface ApiResponse<T> {

@@ -20,11 +20,18 @@ interface NoteContextValue {
   createFolder: (name: string) => Promise<Folder | null>;
   renameFolder: (id: string, name: string) => Promise<Folder | null>;
   deleteFolder: (id: string) => Promise<{ deletedNotesCount: number } | null>;
-  moveNote: (noteId: string, folderId: string | null) => Promise<Note | null>;
+  moveNote: (noteId: string, folderId: string | null, position?: number) => Promise<Note | null>;
   toggleFolder: (folderId: string) => void;
 }
 
 const NoteContext = createContext<NoteContextValue | undefined>(undefined);
+
+function sortByPosition(notes: Note[]): Note[] {
+  return [...notes].sort((a, b) => {
+    if (a.position !== b.position) return a.position - b.position;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+}
 
 export function NoteProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -54,7 +61,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/notes');
       const json: ApiResponse<Note[]> = await res.json();
       if (json.success && json.data) {
-        setNotes(json.data);
+        setNotes(sortByPosition(json.data));
       } else {
         setError(json.error || 'Failed to fetch notes');
       }
@@ -86,7 +93,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       });
       const json: ApiResponse<Note> = await res.json();
       if (json.success && json.data) {
-        setNotes((prev) => [json.data!, ...prev]);
+        setNotes((prev) => sortByPosition([json.data!, ...prev]));
         return json.data;
       }
       return null;
@@ -104,7 +111,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       });
       const json: ApiResponse<Note> = await res.json();
       if (json.success && json.data) {
-        setNotes((prev) => prev.map((n) => (n._id === id ? json.data! : n)));
+        setNotes((prev) => sortByPosition(prev.map((n) => (n._id === id ? json.data! : n))));
         return json.data;
       }
       return null;
@@ -178,13 +185,16 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const moveNote = useCallback(async (noteId: string, folderId: string | null): Promise<Note | null> => {
+  const moveNote = useCallback(async (noteId: string, folderId: string | null, position?: number): Promise<Note | null> => {
     try {
       const body: Record<string, unknown> = {};
       if (folderId !== null) {
         body.folderId = folderId;
       } else {
         body.folderId = null;
+      }
+      if (position !== undefined) {
+        body.position = position;
       }
       const res = await fetch(`/api/notes/${noteId}`, {
         method: 'PUT',
@@ -193,7 +203,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       });
       const json: ApiResponse<Note> = await res.json();
       if (json.success && json.data) {
-        setNotes((prev) => prev.map((n) => (n._id === noteId ? json.data! : n)));
+        setNotes((prev) => sortByPosition(prev.map((n) => (n._id === noteId ? json.data! : n))));
         return json.data;
       }
       return null;

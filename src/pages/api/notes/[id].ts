@@ -23,11 +23,12 @@ export default async function handler(
   const collection = db.collection('notes');
 
   if (req.method === 'PUT') {
-    const { title, content, folderId } = req.body as NoteUpdate;
+    const { title, content, folderId, position } = req.body as NoteUpdate;
     const update: Record<string, unknown> = { updatedAt: new Date() };
     if (title !== undefined) update.title = title.trim();
     if (content !== undefined) update.content = content;
     if (folderId !== undefined) update.folderId = folderId || null;
+    if (position !== undefined) update.position = position;
 
     const result = await collection.findOneAndUpdate(
       { _id: objectId },
@@ -44,6 +45,7 @@ export default async function handler(
       title: result.title,
       content: result.content || '',
       folderId: result.folderId || undefined,
+      position: result.position ?? 0,
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
     };

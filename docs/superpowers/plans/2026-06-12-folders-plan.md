@@ -32,6 +32,7 @@ export interface Note {
   title: string;
   content: string;
   folderId?: string;
+  position: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,12 +41,14 @@ export interface NoteInput {
   title: string;
   content?: string;
   folderId?: string;
+  position?: number;
 }
 
 export interface NoteUpdate {
   title?: string;
   content?: string;
   folderId?: string;
+  position?: number;
 }
 
 export interface ApiResponse<T> {
@@ -231,10 +234,11 @@ git commit -m "feat: add folder rename + delete cascade API"
 - Modify: `src/pages/api/notes.ts`
 - Modify: `src/pages/api/notes/[id].ts`
 
-- [ ] **Step 1: Update notes.ts to handle folderId in POST**
+- [ ] **Step 1: Update notes.ts to handle folderId and position**
 
 Edit `src/pages/api/notes.ts`:
-- In POST handler, accept `folderId` from `req.body` and store it
+- In GET handler, sort by `position` (ascending)
+- In POST handler, accept `folderId` and `position` from `req.body`
 
 ```typescript
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -252,8 +256,8 @@ export default async function handler(
   if (req.method === 'GET') {
     const notes = await collection
       .find({})
-      .project({ title: 1, content: 1, folderId: 1, createdAt: 1, updatedAt: 1 })
-      .sort({ updatedAt: -1 })
+      .project({ title: 1, content: 1, folderId: 1, position: 1, createdAt: 1, updatedAt: 1 })
+      .sort({ position: 1 })
       .toArray();
 
     const mapped: Note[] = notes.map((n) => ({
@@ -261,6 +265,7 @@ export default async function handler(
       title: n.title,
       content: n.content || '',
       folderId: n.folderId || undefined,
+      position: n.position ?? 0,
       createdAt: n.createdAt.toISOString(),
       updatedAt: n.updatedAt.toISOString(),
     }));
@@ -269,7 +274,7 @@ export default async function handler(
   }
 
   if (req.method === 'POST') {
-    const { title, folderId } = req.body as NoteInput;
+    const { title, folderId, position } = req.body as NoteInput;
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, error: 'Title is required' });
     }
@@ -278,6 +283,7 @@ export default async function handler(
     const doc: Record<string, unknown> = {
       title: title.trim(),
       content: '',
+      position: position ?? 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -290,6 +296,7 @@ export default async function handler(
       title: title.trim(),
       content: '',
       folderId: folderId || undefined,
+      position: position ?? 0,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -301,12 +308,10 @@ export default async function handler(
 }
 ```
 
-- [ ] **Step 2: Update [id].ts to handle folderId in PUT**
+- [ ] **Step 2: Update [id].ts to handle folderId and position in PUT**
 
 Edit `src/pages/api/notes/[id].ts`:
-- In PUT handler, accept `folderId` from `req.body`
-
-Add `folderId` to the update object:
+- In PUT handler, accept `folderId` and `position` from `req.body`
 
 ```typescript
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -334,11 +339,12 @@ export default async function handler(
   const collection = db.collection('notes');
 
   if (req.method === 'PUT') {
-    const { title, content, folderId } = req.body as NoteUpdate;
+    const { title, content, folderId, position } = req.body as NoteUpdate;
     const update: Record<string, unknown> = { updatedAt: new Date() };
     if (title !== undefined) update.title = title.trim();
     if (content !== undefined) update.content = content;
     if (folderId !== undefined) update.folderId = folderId || null;
+    if (position !== undefined) update.position = position;
 
     const result = await collection.findOneAndUpdate(
       { _id: objectId },
@@ -355,6 +361,7 @@ export default async function handler(
       title: result.title,
       content: result.content || '',
       folderId: result.folderId || undefined,
+      position: result.position ?? 0,
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
     };
@@ -398,6 +405,9 @@ Read current `NoteContext.tsx` first to understand existing structure, then add:
 // Inside the NoteContext state
 const [folders, setFolders] = useState<Folder[]>([]);
 const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+
+// Helper: sort notes by position
+const sortByPosition = (notes: Note[]) => [...notes].sort((a, b) => a.position - b.position);
 
 // Toggle folder expansion
 const toggleFolder = (folderId: string) => {
@@ -467,14 +477,15 @@ const deleteFolder = useCallback(async (id: string) => {
   return null;
 }, []);
 
-// Move note to folder
-const moveNote = useCallback(async (noteId: string, folderId: string | null) => {
+// Move note to folder (with optional position)
+const moveNote = useCallback(async (noteId: string, folderId: string | null, position?: number) => {
   const body: Record<string, unknown> = {};
   if (folderId !== null) {
     body.folderId = folderId;
   } else {
     body.folderId = null;
   }
+  if (position !== undefined) body.position = position;
   const res = await fetch(`/api/notes/${noteId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -482,11 +493,13 @@ const moveNote = useCallback(async (noteId: string, folderId: string | null) => 
   });
   const json: ApiResponse<Note> = await res.json();
   if (json.success && json.data) {
-    setNotes((prev) => prev.map((n) => (n._id === noteId ? json.data! : n)));
+    setNotes((prev) => sortByPosition(prev.map((n) => (n._id === noteId ? json.data! : n))));
     return json.data;
   }
   return null;
 }, []);
+
+// Also sort notes on every mutation (createNote, updateNote, deleteNote, etc.)
 
 // Include in context value
 const value = useMemo(() => ({
@@ -513,7 +526,7 @@ Make sure to:
 1. Import `Folder` and `ApiResponse` from `@/types`
 2. Add `fetchFolders()` call in the `useEffect` that runs on mount (alongside `fetchNotes()`)
 3. Export all new functions in the context type
-4. Add `folderId` field to the `createNote` function (accept `folderId` in the input, pass to API)
+4. Add `folderId` and `position` fields to the `createNote` function (accept `folderId` and `position` in the input, pass to API)
 
 - [ ] **Step 2: Commit**
 
@@ -596,30 +609,39 @@ git commit -m "feat: add DeleteFolderDialog component with warning"
 **Files:**
 - Modify: `src/components/NotesSidebar.tsx`
 
-- [ ] **Step 1: Restructure sidebar with folder rows, nested notes, inline rename, context menus**
+- [ ] **Step 1: Restructure sidebar with folder rows, nested notes, inline rename, context menus, drag-and-drop indicators**
 
 This is the largest change. Read the current `NotesSidebar.tsx` first, then restructure to:
 
-1. Add imports: `Menu, MenuItem, TextField` from MUI, `DragEvent` from React
+1. Add imports: `Menu, MenuItem, TextField, Chip` from MUI, `DragEvent` from React
 2. Filter notes into two groups: those with a folderId (nested under their folder) and those without ("Quick Notes")
 3. Render folders as expandable sections:
-   - Each folder row is clickable to expand/collapse
-   - Shows folder name, 📁 icon, note count
-   - Notes nested under the folder with indentation
-4. "Quick Notes" section always present at bottom (notes with no folderId)
+   - Each folder row is clickable to expand/collapse + setActiveFolderId
+   - Shows folder icon, bold folder name (1rem, 600 weight), count chip
+   - Selected folder uses MUI default `selected` (no custom accent bar)
+4. "Quick Notes" section always present (always rendered, not conditional)
+   - Same bold styling as folders: icon, 1rem/600 name, count chip
 5. Inline rename on double-click (input replaces text)
 6. Right-click context menu for folders: "Rename", "Delete"
-7. Right-click context menu for notes: "Move to folder" (lists all folders), "Delete"
-8. Drag-and-drop: a note can be dragged onto a folder to move it there
+7. Right-click context menu for notes: "Move to folder" (lists Quick Notes + all folders), "Delete"
+8. Drag-and-drop with position calculation and drop indicators:
+   - `dragActive` state set on dragStart, cleared on dragEnd/drop
+   - `dropTarget` state tracks folderId + noteIndex for indicator position
+   - `handleNoteDragOver` per note: sets dropTarget based on cursor Y (top half = before, bottom half = after)
+   - Drop indicators: 3px primary-colored bars, `position: absolute` (no layout shift)
+   - Empty folders show drop zone via `folderNotes.length === 0 && dragActive`
+   - Stale indicator cleared via `setDropTarget((prev) => prev?.folderId === folder._id ? prev : null)` on folder Box entry
+   - Position interpolation on drop (gap-based: +/-1000 at edges, average between siblings)
+9. New note creation inserts below selected note in same folder with interpolated position
 
 Key sections of the restructured component:
 
 ```typescript
-import React, { useState, useCallback, DragEvent } from 'react';
+import React, { useState, DragEvent } from 'react';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemText,
   Box, Typography, IconButton, Tooltip, TextField, InputAdornment,
-  Menu, MenuItem, Collapse,
+  Menu, MenuItem, Collapse, Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
@@ -631,16 +653,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useNotes } from '@/contexts/NoteContext';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
-
-// Quick Notes is represented as null/undefined folderId
-const QUICK_NOTES_ID = '__quick_notes__';
-
-// ... rest of component with:
-// - Folder sections with expand/collapse
-// - Inline rename via double-click
-// - Context menus for folder/note
-// - Drag-and-drop for note to folder
-// - Search filtering notes by title across all folders
+import { Folder, Note } from '@/types';
 ```
 
 Full implementation details for the sidebar:
@@ -652,22 +665,20 @@ Full implementation details for the sidebar:
   const folderNotes = filtered.filter((n) => n.folderId === folder._id);
   const isExpanded = expandedFolders.has(folder._id);
   return (
-    <Box key={folder._id}>
+    <Box key={folder._id} onDragOver={(e) => { handleDragOver(e); setDropTarget((prev) => prev?.folderId === folder._id ? prev : null); }} onDrop={(e) => handleDrop(e, folder._id)}>
       <ListItem
         disablePadding
         secondaryAction={
-          <Typography variant="caption" color="text.secondary">
-            {folderNotes.length}
-          </Typography>
+          <Chip label={folderNotes.length} size="small" sx={{ height: 18, fontSize: '0.7rem', mr: 0.5 }} />
         }
       >
         <ListItemButton
-          onClick={() => toggleFolder(folder._id)}
+          onClick={() => { toggleFolder(folder._id); setActiveFolderId(folder._id); }}
           onContextMenu={(e) => { e.preventDefault(); openFolderMenu(e, folder); }}
           onDoubleClick={() => startRenaming(folder._id, folder.name)}
-          sx={{ borderRadius: 1, mx: 0.5 }}
+          sx={{ borderRadius: 1.5, mx: 0.5 }}
         >
-          {isExpanded ? <FolderOpenIcon fontSize="small" sx={{ mr: 1 }} /> : <FolderIcon fontSize="small" sx={{ mr: 1 }} />}
+          {isExpanded ? <FolderOpenIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> : <FolderIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
           {renamingId === folder._id ? (
             <TextField
               size="small"
@@ -678,25 +689,37 @@ Full implementation details for the sidebar:
               onKeyDown={(e) => { if (e.key === 'Enter') finishRename(folder._id); if (e.key === 'Escape') cancelRename(); }}
               autoFocus
               onClick={(e) => e.stopPropagation()}
-              slotProps={{ input: { sx: { fontSize: '0.85rem' } } }}
+              slotProps={{ input: { sx: { fontSize: '1rem', fontWeight: 600 } } }}
             />
           ) : (
             <ListItemText
               primary={folder.name}
-              slotProps={{ primary: { sx: { fontSize: '0.85rem', fontWeight: 500 } } }}
+              slotProps={{ primary: { noWrap: true, sx: { fontSize: '1rem', fontWeight: 600 } } }}
             />
           )}
         </ListItemButton>
       </ListItem>
       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-        <List dense disablePadding>
-          {folderNotes.map((note) => (
+        <List dense disablePadding sx={{ position: 'relative' }}>
+          {folderNotes.length === 0 && dragActive && (
+            <Box sx={{ height: 0, position: 'relative', mx: 3 }}>
+              <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, bgcolor: 'primary.main', borderRadius: 0.5 }} />
+            </Box>
+          )}
+          {folderNotes.map((note, noteIndex) => (
             <NoteListItem
               key={note._id}
               note={note}
+              noteIndex={noteIndex}
+              folderId={folder._id}
               // ... handlers
             />
           ))}
+          {dropTarget?.folderId === folder._id && dropTarget.noteIndex === folderNotes.length && folderNotes.length > 0 && (
+            <Box sx={{ height: 0, position: 'relative' }}>
+              <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
+            </Box>
+          )}
         </List>
       </Collapse>
     </Box>
@@ -706,80 +729,174 @@ Full implementation details for the sidebar:
 
 **Quick Notes section:**
 ```tsx
-{/* Quick Notes */}
-{quickNotes.length > 0 && (
-  <Box>
-    <ListItem dense sx={{ px: 2, py: 0.5 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-        Quick Notes
-      </Typography>
-    </ListItem>
-    {quickNotes.map((note) => (
-      <NoteListItem key={note._id} note={note} ... />
-    ))}
-  </Box>
-)}
+{/* Quick Notes — always visible, cannot be deleted */}
+<Box>
+  <ListItem
+    dense
+    sx={{ px: 2, py: 0.5, cursor: 'pointer', borderRadius: 1.5, mx: 0.5 }}
+    onClick={() => setActiveFolderId(null)}
+    secondaryAction={
+      <Chip label={quickNotes.length} size="small" sx={{ height: 18, fontSize: '0.7rem', mr: 0.5 }} />
+    }
+  >
+    <FolderIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+    <ListItemText
+      primary="Quick Notes"
+      slotProps={{ primary: { sx: { fontSize: '1rem', fontWeight: 600 } } }}
+    />
+  </ListItem>
+  {/* Empty folder drop zone (always visible during drag) */}
+  {quickNotes.length === 0 && dragActive && (
+    <Box sx={{ height: 0, position: 'relative', mx: 3 }}>
+      <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, bgcolor: 'primary.main', borderRadius: 0.5 }} />
+    </Box>
+  )}
+  {quickNotes.map((note, noteIndex) => (
+    <NoteListItem key={note._id} note={note} noteIndex={noteIndex} ... />
+  ))}
+  {/* Trailing drop indicator */}
+  {dropTarget?.folderId === null && dropTarget.noteIndex === quickNotes.length && quickNotes.length > 0 && (
+    <Box sx={{ height: 0, position: 'relative' }}>
+      <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
+    </Box>
+  )}
+</Box>
 ```
 
 **Note list item:**
 ```tsx
-function NoteListItem({ note, activeNoteId, setActiveNoteId, deleteNote, onContextMenu, onDragStart, renamingId, renameValue, ... }) {
-  // Similar to existing note list item but draggable
+function NoteListItem({ note, noteIndex, folderId, activeNoteId, setActiveNoteId, deleteNote, onContextMenu, onDragStart, handleNoteDragOver, renamingId, renameValue, dropTarget, ... }) {
   return (
-    <ListItem
-      disablePadding
-      draggable
-      onDragStart={(e) => onDragStart(e, note._id)}
-      secondaryAction={
-        <IconButton edge="end" size="small" onClick={(e) => { e.stopPropagation(); deleteNote(note._id); }}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      }
-    >
-      <ListItemButton
-        selected={activeNoteId === note._id}
-        onClick={() => setActiveNoteId(note._id)}
-        onContextMenu={(e) => onContextMenu(e, note)}
-        onDoubleClick={() => startRenaming(note._id, note.title)}
-        sx={{ borderRadius: 1, mx: 0.5, pl: 3 }}
+    <React.Fragment>
+      <ListItem
+        disablePadding
+        draggable
+        onDragStart={(e) => onDragStart(e, note._id)}
+        onDragEnd={handleDragEnd}
+        secondaryAction={
+          <IconButton edge="end" size="small" onClick={(e) => { e.stopPropagation(); deleteNote(note._id); }}
+            sx={{ opacity: 0, '&:hover': { opacity: 1 } }}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        }
       >
-        {renamingId === note._id ? (
-          <TextField ... />
-        ) : (
-          <ListItemText primary={note.title} ... />
+        {dropTarget?.folderId === folderId && dropTarget.noteIndex === noteIndex && (
+          <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
         )}
-      </ListItemButton>
-    </ListItem>
+        <ListItemButton
+          selected={activeNoteId === note._id}
+          onClick={() => setActiveNoteId(note._id)}
+          onContextMenu={(e) => onContextMenu(e, note)}
+          onDoubleClick={() => startRenaming(note._id, note.title)}
+          onDragOver={(e) => handleNoteDragOver(e, noteIndex, folderId)}
+          sx={{ borderRadius: 1.5, ml: 3, mr: 0.5 }}
+        >
+          {renamingId === note._id ? (
+            <TextField
+              size="small" variant="standard" value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={() => finishRename(note._id)}
+              onKeyDown={(e) => { if (e.key === 'Enter') finishRename(note._id); if (e.key === 'Escape') cancelRename(); }}
+              autoFocus onClick={(e) => e.stopPropagation()}
+              slotProps={{ input: { sx: { fontSize: '0.85rem' } } }}
+            />
+          ) : (
+            <ListItemText
+              primary={note.title}
+              slotProps={{ primary: { noWrap: true, sx: { fontSize: '0.85rem' } } }}
+            />
+          )}
+        </ListItemButton>
+      </ListItem>
+    </React.Fragment>
   );
 }
 ```
 
-**Drag and drop:**
+**Drag and drop with position interpolation and drop indicators:**
+
 ```tsx
+// State
+const [dragActive, setDragActive] = useState(false);
+const [dropTarget, setDropTarget] = useState<{ folderId: string | null; noteIndex: number } | null>(null);
+
+// Start dragging
 const handleDragStart = (e: DragEvent, noteId: string) => {
   e.dataTransfer.setData('text/plain', noteId);
+  e.dataTransfer.effectAllowed = 'move';
+  setDragActive(true);
 };
 
-const handleDrop = (e: DragEvent, folderId: string | null) => {
-  e.preventDefault();
-  const noteId = e.dataTransfer.getData('text/plain');
-  if (noteId) {
-    moveNote(noteId, folderId);
-  }
-};
-
+// Allow drop on container
 const handleDragOver = (e: DragEvent) => {
   e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
 };
 
-// On folder ListItem:
-// onDragOver={handleDragOver}
+// Per-note drag-over — sets drop target with position
+const handleNoteDragOver = (e: DragEvent, noteIndex: number, parentFolderId: string | null) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const relativeY = e.clientY - rect.top;
+  const index = relativeY < rect.height / 2 ? noteIndex : noteIndex + 1;
+  setDropTarget({ folderId: parentFolderId, noteIndex: index });
+};
+
+// Drop — calculate position via interpolation
+const handleDrop = async (e: DragEvent, targetFolderId: string | null) => {
+  e.preventDefault();
+  const noteId = e.dataTransfer.getData('text/plain');
+  if (noteId && dropTarget && dropTarget.folderId === targetFolderId) {
+    const targetNotes = notes
+      .filter((n) => targetFolderId === null ? !n.folderId : n.folderId === targetFolderId)
+      .sort((a, b) => a.position - b.position);
+    const { noteIndex } = dropTarget;
+    let position: number;
+    if (targetNotes.length === 0) {
+      position = 0;
+    } else if (noteIndex <= 0) {
+      position = targetNotes[0].position - 1000;
+    } else if (noteIndex >= targetNotes.length) {
+      position = targetNotes[targetNotes.length - 1].position + 1000;
+    } else {
+      position = (targetNotes[noteIndex - 1].position + targetNotes[noteIndex].position) / 2;
+    }
+    await moveNote(noteId, targetFolderId, position);
+  } else if (noteId) {
+    await moveNote(noteId, targetFolderId);
+  }
+  setDropTarget(null);
+  setDragActive(false);
+};
+
+const handleDragEnd = () => {
+  setDropTarget(null);
+  setDragActive(false);
+};
+
+// On folder Box:
+// onDragOver={(e) => { handleDragOver(e); setDropTarget((prev) => prev?.folderId === folder._id ? prev : null); }}
 // onDrop={(e) => handleDrop(e, folder._id)}
+
+// On note ListItemButton:
+// onDragOver={(e) => handleNoteDragOver(e, noteIndex, folderId)}]
 ```
 
-**Context menu for folders:**
+**Context menu:**
 ```tsx
-const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; target: Folder | Note; type: 'folder' | 'note' } | null>(null);
+const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; type: 'folder' | 'note'; target: Folder | Note } | null>(null);
+const [moveNoteTarget, setMoveNoteTarget] = useState<Note | null>(null);
+const [moveMenuPosition, setMoveMenuPosition] = useState<{ mouseX: number; mouseY: number } | null>(null);
+
+// Save move menu position before clearing contextMenu
+const handleContextMoveNote = () => {
+  if (contextMenu?.type === 'note') {
+    setMoveMenuPosition({ mouseX: contextMenu.mouseX, mouseY: contextMenu.mouseY });
+    setMoveNoteTarget(contextMenu.target as Note);
+    setContextMenu(null);
+  }
+};
 
 <Menu
   open={contextMenu !== null}
@@ -787,26 +904,39 @@ const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number;
   anchorReference="anchorPosition"
   anchorPosition={contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
 >
-  {contextMenu?.type === 'folder' && (
-    [
-      <MenuItem key="rename" onClick={() => { startRenaming(contextMenu.target._id, contextMenu.target.name); setContextMenu(null); }}>
-        <DriveFileRenameOutlineIcon fontSize="small" sx={{ mr: 1 }} /> Rename
-      </MenuItem>,
-      <MenuItem key="delete" onClick={() => { setDeleteFolderTarget(contextMenu.target); setContextMenu(null); }}>
-        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-      </MenuItem>,
-    ]
-  )}
-  {contextMenu?.type === 'note' && (
-    [
-      <MenuItem key="move" onClick={() => { setMoveNoteTarget(contextMenu.target); setContextMenu(null); }}>
-        Move to folder
-      </MenuItem>,
-      <MenuItem key="delete" onClick={() => { setDeleteNoteTarget(contextMenu.target); setContextMenu(null); }}>
-        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-      </MenuItem>,
-    ]
-  )}
+  {contextMenu?.type === 'folder' && [
+    <MenuItem key="rename" onClick={() => { startRenaming((contextMenu.target as Folder)._id, (contextMenu.target as Folder).name); setContextMenu(null); }}>
+      <DriveFileRenameOutlineIcon fontSize="small" sx={{ mr: 1 }} /> Rename
+    </MenuItem>,
+    <MenuItem key="delete" onClick={() => { setDeleteFolderTarget(contextMenu.target as Folder); setContextMenu(null); }}>
+      <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+    </MenuItem>,
+  ]}
+  {contextMenu?.type === 'note' && [
+    <MenuItem key="move" onClick={handleContextMoveNote}>
+      Move to folder
+    </MenuItem>,
+    <MenuItem key="delete" onClick={() => { setDeleteNoteTarget((contextMenu.target as Note)._id); setContextMenu(null); }}>
+      <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+    </MenuItem>,
+  ]}
+</Menu>
+
+{/* Move to folder submenu */}
+<Menu
+  open={Boolean(moveNoteTarget)}
+  onClose={() => { setMoveNoteTarget(null); setMoveMenuPosition(null); }}
+  anchorReference="anchorPosition"
+  anchorPosition={moveMenuPosition ? { top: moveMenuPosition.mouseY, left: moveMenuPosition.mouseX } : undefined}
+>
+  <MenuItem onClick={async () => { if (moveNoteTarget) { await moveNote(moveNoteTarget._id, null); setMoveNoteTarget(null); } }}>
+    Quick Notes
+  </MenuItem>
+  {folders.map((f) => (
+    <MenuItem key={f._id} onClick={async () => { if (moveNoteTarget) { await moveNote(moveNoteTarget._id, f._id); setMoveNoteTarget(null); } }}>
+      {f.name}
+    </MenuItem>
+  ))}
 </Menu>
 ```
 
@@ -974,4 +1104,4 @@ Expected: Build succeeds without errors
 - [ ] **Step 2: Run dev server and verify folder CRUD**
 
 Run: `npm run dev`
-Expected: App starts. Sidebar shows "📁" icon. Clicking it creates a "New Folder" folder. Double-click folder name renames it. Right-click context menu shows Rename/Delete. Delete shows warning with note count. Notes can be dragged to folders. Responsive: hamburger shows on narrow viewport.
+Expected: App starts. Sidebar shows folder icon. Clicking it creates a new folder. Double-click folder name renames it. Right-click context menu shows Rename/Delete. Delete shows warning with note count. Drag-and-drop notes between folders shows position-based drop indicators. New notes created below selected note with correct position. Drop into empty folders shows indicator. Quick Notes always visible, matching folder styling. Responsive: hamburger shows on narrow viewport.

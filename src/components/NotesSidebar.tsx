@@ -2,7 +2,7 @@ import React, { useState, DragEvent } from 'react';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemText,
   Box, Typography, IconButton, Tooltip, TextField, InputAdornment,
-  Menu, MenuItem, Collapse,
+  Menu, MenuItem, Collapse, Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
@@ -20,7 +20,7 @@ const DRAWER_WIDTH = 280;
 
 export default function NotesSidebar() {
   const {
-    notes, folders, expandedFolders, createNote, deleteNote,
+    notes, folders, expandedFolders, createNote, deleteNote, updateNote,
     activeNoteId, setActiveNoteId, createFolder, renameFolder,
     deleteFolder, moveNote, toggleFolder,
   } = useNotes();
@@ -43,7 +43,17 @@ export default function NotesSidebar() {
 
   // Move note via context menu
   const [moveNoteTarget, setMoveNoteTarget] = useState<Note | null>(null);
-  const [moveMenuAnchor, setMoveMenuAnchor] = useState<HTMLElement | null>(null);
+  const [moveMenuPosition, setMoveMenuPosition] = useState<{ mouseX: number; mouseY: number } | null>(null);
+
+  // Active folder for new note creation
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+
+  // Drag-and-drop state
+  const [dragActive, setDragActive] = useState(false);
+  const [dropTarget, setDropTarget] = useState<{
+    folderId: string | null;
+    noteIndex: number;
+  } | null>(null);
 
   // Inline rename
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -56,7 +66,25 @@ export default function NotesSidebar() {
   const quickNotes = filtered.filter((n) => !n.folderId);
 
   const handleCreate = async () => {
-    const note = await createNote({ title: 'Untitled Note' });
+    let targetFolderId = activeFolderId ?? undefined;
+    let position: number | undefined;
+
+    if (activeNoteId) {
+      const selectedNote = notes.find((n) => n._id === activeNoteId);
+      if (selectedNote) {
+        targetFolderId = selectedNote.folderId;
+        const siblings = notes
+          .filter((n) => n.folderId === selectedNote.folderId)
+          .sort((a, b) => a.position - b.position);
+        const idx = siblings.findIndex((n) => n._id === activeNoteId);
+        const nextNote = siblings[idx + 1];
+        position = nextNote
+          ? (selectedNote.position + nextNote.position) / 2
+          : selectedNote.position + 1000;
+      }
+    }
+
+    const note = await createNote({ title: 'Untitled Note', folderId: targetFolderId, position });
     if (note) setActiveNoteId(note._id);
   };
 
@@ -96,6 +124,8 @@ export default function NotesSidebar() {
     // Check if it's a folder or note
     if (folders.some((f) => f._id === id)) {
       await renameFolder(id, renameValue.trim());
+    } else {
+      await updateNote(id, { title: renameValue.trim() });
     }
     cancelRename();
   };
@@ -135,14 +165,15 @@ export default function NotesSidebar() {
   const handleContextMoveNote = () => {
     if (!contextMenu || contextMenu.type !== 'note') return;
     setMoveNoteTarget(contextMenu.target as Note);
+    setMoveMenuPosition({ mouseX: contextMenu.mouseX, mouseY: contextMenu.mouseY });
     setContextMenu(null);
-    // We need the anchor position - use the menu position
   };
 
   // Drag and drop
   const handleDragStart = (e: DragEvent, noteId: string) => {
     e.dataTransfer.setData('text/plain', noteId);
     e.dataTransfer.effectAllowed = 'move';
+    setDragActive(true);
   };
 
   const handleDragOver = (e: DragEvent) => {
@@ -153,9 +184,41 @@ export default function NotesSidebar() {
   const handleDrop = async (e: DragEvent, targetFolderId: string | null) => {
     e.preventDefault();
     const noteId = e.dataTransfer.getData('text/plain');
-    if (noteId) {
+    if (noteId && dropTarget && dropTarget.folderId === targetFolderId) {
+      const targetNotes = notes
+        .filter((n) => targetFolderId === null ? !n.folderId : n.folderId === targetFolderId)
+        .sort((a, b) => a.position - b.position);
+      const { noteIndex } = dropTarget;
+      let position: number;
+      if (targetNotes.length === 0) {
+        position = 0;
+      } else if (noteIndex <= 0) {
+        position = targetNotes[0].position - 1000;
+      } else if (noteIndex >= targetNotes.length) {
+        position = targetNotes[targetNotes.length - 1].position + 1000;
+      } else {
+        position = (targetNotes[noteIndex - 1].position + targetNotes[noteIndex].position) / 2;
+      }
+      await moveNote(noteId, targetFolderId, position);
+    } else if (noteId) {
       await moveNote(noteId, targetFolderId);
     }
+    setDropTarget(null);
+    setDragActive(false);
+  };
+
+  const handleNoteDragOver = (e: DragEvent, noteIndex: number, parentFolderId: string | null) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const relativeY = e.clientY - rect.top;
+    const index = relativeY < rect.height / 2 ? noteIndex : noteIndex + 1;
+    setDropTarget({ folderId: parentFolderId, noteIndex: index });
+  };
+
+  const handleDragEnd = () => {
+    setDropTarget(null);
+    setDragActive(false);
   };
 
   return (
@@ -221,21 +284,17 @@ export default function NotesSidebar() {
             const isExpanded = expandedFolders.has(folder._id);
 
             return (
-              <Box key={folder._id}>
+              <Box key={folder._id} onDragOver={(e) => { handleDragOver(e); setDropTarget((prev) => prev?.folderId === folder._id ? prev : null); }} onDrop={(e) => handleDrop(e, folder._id)}>
                 <ListItem
                   disablePadding
                   secondaryAction={
-                    <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-                      {folderNotes.length}
-                    </Typography>
+                    <Chip label={folderNotes.length} size="small" sx={{ height: 18, fontSize: '0.7rem', mr: 0.5 }} />
                   }
                 >
                   <ListItemButton
-                    onClick={() => toggleFolder(folder._id)}
+                    onClick={() => { toggleFolder(folder._id); setActiveFolderId(folder._id); }}
                     onContextMenu={(e) => openFolderMenu(e, folder)}
                     onDoubleClick={() => startRenaming(folder._id, folder.name)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, folder._id)}
                     sx={{ borderRadius: 1.5, mx: 0.5 }}
                   >
                     {isExpanded ? (
@@ -258,7 +317,7 @@ export default function NotesSidebar() {
                         onClick={(e) => e.stopPropagation()}
                         slotProps={{
                           input: {
-                            sx: { fontSize: '0.85rem', fontWeight: 500 },
+                            sx: { fontSize: '1rem', fontWeight: 600 },
                           },
                         }}
                       />
@@ -268,7 +327,7 @@ export default function NotesSidebar() {
                         slotProps={{
                           primary: {
                             noWrap: true,
-                            sx: { fontSize: '0.85rem', fontWeight: 500 },
+                            sx: { fontSize: '1rem', fontWeight: 600 },
                           },
                         }}
                       />
@@ -277,163 +336,199 @@ export default function NotesSidebar() {
                 </ListItem>
 
                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                  <List dense disablePadding>
-                    {folderNotes.map((note) => (
-                      <ListItem
-                        key={note._id}
-                        disablePadding
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, note._id)}
-                        secondaryAction={
-                          <IconButton
-                            edge="end"
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); setDeleteNoteTarget(note._id); }}
-                            sx={{ opacity: 0, '&:hover': { opacity: 1 } }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        }
-                      >
-                        <ListItemButton
-                          selected={activeNoteId === note._id}
-                          onClick={() => setActiveNoteId(note._id)}
-                          onContextMenu={(e) => openNoteMenu(e, note)}
-                          onDoubleClick={() => startRenaming(note._id, note.title)}
-                          sx={{
-                            borderRadius: 1.5,
-                            ml: 3,
-                            mr: 0.5,
-                            borderLeft: 3,
-                            borderColor: activeNoteId === note._id ? 'primary.main' : 'transparent',
-                            '&:hover .MuiListItemSecondaryAction-root .MuiIconButton-root': {
-                              opacity: 0.4,
-                            },
-                          }}
-                        >
-                          {renamingId === note._id ? (
-                            <TextField
+                  <List dense disablePadding sx={{ position: 'relative' }}>
+                    {folderNotes.length === 0 && dragActive && (
+                      <Box sx={{ height: 0, position: 'relative', mx: 3 }}>
+                        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, bgcolor: 'primary.main', borderRadius: 0.5 }} />
+                      </Box>
+                    )}
+                    {folderNotes.map((note, noteIndex) => (
+                      <React.Fragment key={note._id}>
+                        <ListItem
+                          disablePadding
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, note._id)}
+                          onDragEnd={handleDragEnd}
+                          secondaryAction={
+                            <IconButton
+                              edge="end"
                               size="small"
-                              variant="standard"
-                              value={renameValue}
-                              onChange={(e) => setRenameValue(e.target.value)}
-                              onBlur={() => finishRename(note._id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') finishRename(note._id);
-                                if (e.key === 'Escape') cancelRename();
-                              }}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                              slotProps={{
-                                input: {
-                                  sx: { fontSize: '0.85rem' },
-                                },
-                              }}
-                            />
-                          ) : (
-                            <ListItemText
-                              primary={note.title}
-                              slotProps={{
-                                primary: {
-                                  noWrap: true,
-                                  sx: {
-                                    fontSize: '0.85rem',
-                                    fontWeight: activeNoteId === note._id ? 600 : 400,
-                                  },
-                                },
-                              }}
-                            />
+                              onClick={(e) => { e.stopPropagation(); setDeleteNoteTarget(note._id); }}
+                              sx={{ opacity: 0, '&:hover': { opacity: 1 } }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          }
+                        >
+                          {dropTarget?.folderId === folder._id && dropTarget.noteIndex === noteIndex && (
+                            <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
                           )}
+                          <ListItemButton
+                            selected={activeNoteId === note._id}
+                            onClick={() => setActiveNoteId(note._id)}
+                            onContextMenu={(e) => openNoteMenu(e, note)}
+                            onDoubleClick={() => startRenaming(note._id, note.title)}
+                            onDragOver={(e) => handleNoteDragOver(e, noteIndex, folder._id)}
+                            sx={{
+                              borderRadius: 1.5,
+                              ml: 3,
+                              mr: 0.5,
+                              '&:hover .MuiListItemSecondaryAction-root .MuiIconButton-root': {
+                                opacity: 0.4,
+                              },
+                            }}
+                      >
+                        {renamingId === note._id ? (
+                          <TextField
+                            size="small"
+                            variant="standard"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={() => finishRename(note._id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') finishRename(note._id);
+                              if (e.key === 'Escape') cancelRename();
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                            slotProps={{
+                              input: {
+                                sx: { fontSize: '0.85rem' },
+                              },
+                            }}
+                          />
+                        ) : (
+                          <ListItemText
+                            primary={note.title}
+                            slotProps={{
+                              primary: {
+                                noWrap: true,
+                                sx: { fontSize: '0.85rem' },
+                              },
+                            }}
+                          />
+                        )}
                         </ListItemButton>
                       </ListItem>
+                    </React.Fragment>
                     ))}
+                    {dropTarget?.folderId === folder._id && dropTarget.noteIndex === folderNotes.length && folderNotes.length > 0 && (
+                      <Box sx={{ height: 0, position: 'relative' }}>
+                        <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
+                      </Box>
+                    )}
                   </List>
                 </Collapse>
               </Box>
             );
           })}
 
-          {/* Quick Notes section */}
-          {quickNotes.length > 0 && (
-            <Box
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, null)}
+          {/* Quick Notes section — always visible, cannot be deleted */}
+          <Box
+            onDragOver={(e) => { handleDragOver(e); setDropTarget((prev) => prev?.folderId === null ? prev : null); }}
+            onDrop={(e) => handleDrop(e, null)}
+          >
+            <ListItem
+              dense
+              sx={{ px: 2, py: 0.5, cursor: 'pointer', borderRadius: 1.5, mx: 0.5 }}
+              onClick={() => setActiveFolderId(null)}
+              secondaryAction={
+                <Chip label={quickNotes.length} size="small" sx={{ height: 18, fontSize: '0.7rem', mr: 0.5 }} />
+              }
             >
-              <ListItem dense sx={{ px: 2, py: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
-                  Quick Notes
-                </Typography>
-              </ListItem>
-              {quickNotes.map((note) => (
-                <ListItem
-                  key={note._id}
-                  disablePadding
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, note._id)}
-                  secondaryAction={
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={(e) => { e.stopPropagation(); setDeleteNoteTarget(note._id); }}
-                      sx={{ opacity: 0, '&:hover': { opacity: 1 } }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  }
-                >
-                  <ListItemButton
-                    selected={activeNoteId === note._id}
-                    onClick={() => setActiveNoteId(note._id)}
-                    onContextMenu={(e) => openNoteMenu(e, note)}
-                    onDoubleClick={() => startRenaming(note._id, note.title)}
-                    sx={{
-                      borderRadius: 1.5,
-                      mx: 0.5,
-                      borderLeft: 3,
-                      borderColor: activeNoteId === note._id ? 'primary.main' : 'transparent',
-                      '&:hover .MuiListItemSecondaryAction-root .MuiIconButton-root': {
-                        opacity: 0.4,
-                      },
-                    }}
-                  >
-                    {renamingId === note._id ? (
-                      <TextField
+              <FolderIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+              <ListItemText
+                primary="Quick Notes"
+                slotProps={{
+                  primary: {
+                    sx: { fontSize: '1rem', fontWeight: 600 },
+                  },
+                }}
+              />
+            </ListItem>
+            {quickNotes.length === 0 && dragActive && (
+              <Box sx={{ height: 0, position: 'relative', mx: 3 }}>
+                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, bgcolor: 'primary.main', borderRadius: 0.5 }} />
+              </Box>
+            )}
+              {quickNotes.map((note, noteIndex) => (
+                <React.Fragment key={note._id}>
+                  <ListItem
+                    disablePadding
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, note._id)}
+                    onDragEnd={handleDragEnd}
+                    secondaryAction={
+                      <IconButton
+                        edge="end"
                         size="small"
-                        variant="standard"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => finishRename(note._id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') finishRename(note._id);
-                          if (e.key === 'Escape') cancelRename();
-                        }}
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                        slotProps={{
-                          input: {
-                            sx: { fontSize: '0.85rem' },
-                          },
-                        }}
-                      />
-                    ) : (
-                      <ListItemText
-                        primary={note.title}
-                        slotProps={{
-                          primary: {
-                            noWrap: true,
-                            sx: {
-                              fontSize: '0.85rem',
-                              fontWeight: activeNoteId === note._id ? 600 : 400,
-                            },
-                          },
-                        }}
-                      />
+                        onClick={(e) => { e.stopPropagation(); setDeleteNoteTarget(note._id); }}
+                        sx={{ opacity: 0, '&:hover': { opacity: 1 } }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    }
+                  >
+                    {dropTarget?.folderId === null && dropTarget.noteIndex === noteIndex && (
+                      <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
                     )}
-                  </ListItemButton>
-                </ListItem>
+                    <ListItemButton
+                      selected={activeNoteId === note._id}
+                      onClick={() => setActiveNoteId(note._id)}
+                      onContextMenu={(e) => openNoteMenu(e, note)}
+                      onDoubleClick={() => startRenaming(note._id, note.title)}
+                      onDragOver={(e) => handleNoteDragOver(e, noteIndex, null)}
+                      sx={{
+                        borderRadius: 1.5,
+                        ml: 3,
+                        mr: 0.5,
+                        '&:hover .MuiListItemSecondaryAction-root .MuiIconButton-root': {
+                          opacity: 0.4,
+                        },
+                      }}
+                    >
+                      {renamingId === note._id ? (
+                        <TextField
+                          size="small"
+                          variant="standard"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => finishRename(note._id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') finishRename(note._id);
+                            if (e.key === 'Escape') cancelRename();
+                          }}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          slotProps={{
+                            input: {
+                              sx: { fontSize: '0.85rem' },
+                            },
+                          }}
+                        />
+                      ) : (
+                        <ListItemText
+                          primary={note.title}
+                          slotProps={{
+                            primary: {
+                              noWrap: true,
+                              sx: {
+                                fontSize: '0.85rem',
+                              },
+                            },
+                          }}
+                        />
+                      )}
+                    </ListItemButton>
+                  </ListItem>
+                </React.Fragment>
               ))}
+              {dropTarget?.folderId === null && dropTarget.noteIndex === quickNotes.length && quickNotes.length > 0 && (
+                <Box sx={{ height: 0, position: 'relative' }}>
+                  <Box sx={{ position: 'absolute', top: 0, left: 36, right: 12, height: 3, bgcolor: 'primary.main', borderRadius: 0.5, zIndex: 10 }} />
+                </Box>
+              )}
             </Box>
-          )}
         </List>
       </Drawer>
 
@@ -467,10 +562,10 @@ export default function NotesSidebar() {
       {/* Move to folder submenu */}
       <Menu
         open={Boolean(moveNoteTarget)}
-        onClose={() => setMoveNoteTarget(null)}
+        onClose={() => { setMoveNoteTarget(null); setMoveMenuPosition(null); }}
         anchorReference="anchorPosition"
         anchorPosition={
-          contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined
+          moveMenuPosition ? { top: moveMenuPosition.mouseY, left: moveMenuPosition.mouseX } : undefined
         }
       >
         <MenuItem

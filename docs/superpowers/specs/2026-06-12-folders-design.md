@@ -22,14 +22,29 @@ interface Note {
   title: string;
   content: string;
   folderId?: string;   // null/undefined = "Quick Notes" concept
+  position: number;    // ordering within folder, gap-based (insert at any position)
   createdAt: string;
   updatedAt: string;
+}
+
+interface NoteInput {
+  title: string;
+  content?: string;
+  folderId?: string;
+  position?: number;
+}
+
+interface NoteUpdate {
+  title?: string;
+  content?: string;
+  folderId?: string;
+  position?: number;
 }
 ```
 
 ### MongoDB
 - New `folders` collection storing Folder documents
-- Existing `notes` collection — each note gains an optional `folderId` field referencing a Folder `_id`
+- Existing `notes` collection — each note gains an optional `folderId` field referencing a Folder `_id`, and a `position` field (number) for ordering
 - Notes with no `folderId` are considered "Quick Notes" (the default folder shown in the UI)
 
 ## API Endpoints
@@ -45,11 +60,10 @@ DELETE /api/folders/[id]     → deletes folder + all notes inside
 
 ### Notes (updated)
 ```
-POST /api/notes              → body: { title: string, folderId?: string }
-PUT  /api/notes/[id]         → body: { title?, content?, folderId? }
+GET  /api/notes              → returns notes sorted by position (ascending)
+POST /api/notes              → body: { title: string, folderId?: string, position?: number }
+PUT  /api/notes/[id]         → body: { title?, content?, folderId?, position? }
 ```
-
-All endpoints require authentication (session check via `getServerSession`).
 
 ### Delete folder behavior
 - Server deletes the folder document from the `folders` collection
@@ -62,14 +76,23 @@ All endpoints require authentication (session check via `getServerSession`).
 - Sidebar header: icon buttons for "New Note" (`+`) and "New Folder" (`📁`)
 - Search bar (unchanged from current)
 - Folder rows, each expandable to show notes inside:
-  - Folder row shows: 📁 icon, folder name, note count badge
-  - Click folder row → expands/collapses to show/hide notes inside
-  - Expand/collapse has smooth height animation
-- Notes listed under their folder with indentation
-- "Quick Notes" folder always present (hardcoded, notes with no folderId)
-- Drag-and-drop a note onto a different folder to move it
+  - Folder row shows: folder icon, bold folder name (1rem, 600 weight), note count chip
+  - Click folder row → expands/collapses + sets as active folder
+  - Selected folder uses MUI default `selected` style (gray background, no custom accent bar)
+- Notes listed under their folder with indentation (ml: 3)
+  - Selected note uses MUI default `selected` style (no left accent border, no bold)
+  - Notes use 0.85rem font size, 400 weight
+- "Quick Notes" section always visible (always rendered, not conditional on length)
+  - Same styling as folder rows: bold name (1rem, 600), count chip, folder icon
+  - Cannot be deleted
+- Drag-and-drop with visual feedback:
+  - Drop indicators: 3px primary-colored absolutely positioned bars (no layout shift during drag)
+  - Each note has drag-over zones (top half = insert before, bottom half = insert after)
+  - Empty folders show a 24px drop zone with indicator during drag
+  - Stale drop indicators cleared when entering a new folder's zone
+- New note creation inserts at interpolated position below the selected note (same folder)
 - Right-click context menu on folders: "Rename", "Delete"
-- Right-click context menu on notes: "Move to folder" → submenu listing folders, "Delete"
+- Right-click context menu on notes: "Move to folder" → submenu listing all folders + Quick Notes, "Delete"
 - Double-click folder name → inline rename (input replaces text)
 - Double-click note title → inline rename
 
@@ -83,6 +106,17 @@ All endpoints require authentication (session check via `getServerSession`).
 - Hamburger menu icon on tablet/mobile to toggle sidebar visibility
 - Sidebar states: permanent (desktop), persistent (tablet), temporary (mobile)
 
+## Drag-and-Drop Position Calculation
+
+```
+position = GAP (default 1000) between consecutive notes
+Insert at start: targetNotes[0].position - 1000
+Insert at end:   targetNotes[last].position + 1000
+Insert between:  (targetNotes[i-1].position + targetNotes[i].position) / 2
+```
+
+Position is interpolated on drop. Notes are sorted by `position` on every state mutation.
+
 ## State Management (NoteContext)
 
 Add to `NoteContext`:
@@ -92,7 +126,8 @@ Add to `NoteContext`:
 - `createFolder(name)` — create folder
 - `renameFolder(id, name)` — rename folder
 - `deleteFolder(id)` — delete folder with cascade
-- `moveNote(noteId, folderId)` — move note to folder
+- `moveNote(noteId, folderId, position?)` — move note to folder with optional position
+- All notes state sorted by `position` (ascending) after every mutation
 
 ## Responsive Breakpoints
 
@@ -104,12 +139,12 @@ Add to `NoteContext`:
 
 ## Implementation Order
 
-1. Add `Folder` type and update `Note` type
+1. Add `Folder` type and update `Note` type (add `position`)
 2. Create `src/pages/api/folders.ts` and `src/pages/api/folders/[id].ts`
-3. Update `src/pages/api/notes.ts` and `src/pages/api/notes/[id].ts` with `folderId` support
-4. Update `NoteContext` with folders state and actions
+3. Update `src/pages/api/notes.ts` and `src/pages/api/notes/[id].ts` with `folderId` + `position` support
+4. Update `NoteContext` with folders state, actions, and position-based sorting
 5. Restructure `NotesSidebar` with expandable folders, inline rename, context menus
 6. Create `DeleteFolderDialog` component
 7. Update `AppHeader` with responsive hamburger toggle
-8. Add drag-and-drop support for moving notes between folders
+8. Add drag-and-drop with position interpolation and drop indicators
 9. Test all CRUD flows and responsive behavior

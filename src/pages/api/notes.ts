@@ -13,8 +13,8 @@ export default async function handler(
   if (req.method === 'GET') {
     const notes = await collection
       .find({})
-      .project({ title: 1, content: 1, folderId: 1, createdAt: 1, updatedAt: 1 })
-      .sort({ updatedAt: -1 })
+      .project({ title: 1, content: 1, folderId: 1, position: 1, createdAt: 1, updatedAt: 1 })
+      .sort({ position: 1, updatedAt: -1 })
       .toArray();
 
     const mapped: Note[] = notes.map((n) => ({
@@ -22,6 +22,7 @@ export default async function handler(
       title: n.title,
       content: n.content || '',
       folderId: n.folderId || undefined,
+      position: n.position ?? 0,
       createdAt: n.createdAt.toISOString(),
       updatedAt: n.updatedAt.toISOString(),
     }));
@@ -30,7 +31,7 @@ export default async function handler(
   }
 
   if (req.method === 'POST') {
-    const { title, folderId } = req.body as NoteInput;
+    const { title, folderId, position } = req.body as NoteInput;
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, error: 'Title is required' });
     }
@@ -39,6 +40,7 @@ export default async function handler(
     const doc: Record<string, unknown> = {
       title: title.trim(),
       content: '',
+      position: position ?? 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -51,6 +53,7 @@ export default async function handler(
       title: title.trim(),
       content: '',
       folderId: folderId || undefined,
+      position: position ?? 0,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
