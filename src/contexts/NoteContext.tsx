@@ -55,6 +55,28 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('expandedFolders');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setExpandedFolders(new Set(parsed));
+        }
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('expandedFolders', JSON.stringify(Array.from(expandedFolders)));
+    } catch {
+      // localStorage unavailable
+    }
+  }, [expandedFolders]);
+
   const fetchNotes = useCallback(async () => {
     try {
       setLoading(true);
