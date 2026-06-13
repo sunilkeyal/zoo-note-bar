@@ -11,6 +11,8 @@ import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutli
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SearchIcon from '@mui/icons-material/Search';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import { useNotes } from '@/contexts/NoteContext';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
@@ -244,6 +246,24 @@ export default function NotesSidebar() {
             px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider',
           }}
         >
+          <Tooltip title="Expand All Folders">
+            <IconButton
+              size="small"
+              onClick={() => folders.forEach((f) => { if (!expandedFolders.has(f._id)) toggleFolder(f._id); })}
+              sx={{ width: 28, height: 28 }}
+            >
+              <UnfoldMoreIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Collapse All Folders">
+            <IconButton
+              size="small"
+              onClick={() => folders.forEach((f) => { if (expandedFolders.has(f._id)) toggleFolder(f._id); })}
+              sx={{ width: 28, height: 28 }}
+            >
+              <UnfoldLessIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="New Note">
             <IconButton size="small" onClick={handleCreate} sx={{ width: 28, height: 28 }}>
               <AddIcon fontSize="small" />
