@@ -130,13 +130,13 @@
 .ProseMirror {
   outline: none;
   min-height: 200px;
-  line-height: 1.75;
+  line-height: 1.8;
   font-size: 16px;
   max-width: 1140px;
   color: inherit;
   font-family: inherit;
 }
-.ProseMirror p { margin: 0 0 0.5rem 0; }
+.ProseMirror p { margin: 0 0 1rem 0; }
 .ProseMirror ul { padding-left: 1.75rem; list-style-type: disc; margin: 0.3rem 0; }
 .ProseMirror ol { padding-left: 1.75rem; list-style-type: decimal; margin: 0.3rem 0; }
 .ProseMirror li { margin: 0.2rem 0; }
