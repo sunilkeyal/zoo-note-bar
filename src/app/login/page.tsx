@@ -2,13 +2,11 @@
 
 import React, { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter } from "@/components/ui/card"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +27,7 @@ export default function LoginPage() {
       setError("Invalid username or password")
       setLoading(false)
     } else {
-      router.push("/")
+      window.location.href = "/"
     }
   }
 
