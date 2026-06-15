@@ -2,22 +2,10 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { connectToDatabase } from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
+import { ensureAdmin } from "@/lib/seed"
 
-async function ensureAdmin(db: import("mongodb").Db) {
-  const existing = await db.collection("users").countDocuments()
-  if (existing === 0) {
-    const hash = await bcrypt.hash("admin123", 12)
-    await db.collection("users").insertOne({
-      username: "admin",
-      email: "admin@example.com",
-      displayName: "Admin User",
-      passwordHash: hash,
-      role: "admin",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-  }
-}
+// Trigger seed on first module load (non-blocking)
+ensureAdmin()
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -28,13 +16,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.username || !credentials?.password) {
+          return null
+        }
+
         const { username, password } = credentials as {
           username: string
           password: string
         }
 
         const db = await connectToDatabase()
-        await ensureAdmin(db)
 
         const user = await db.collection("users").findOne({ username })
         if (!user) return null
