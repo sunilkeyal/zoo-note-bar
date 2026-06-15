@@ -18,7 +18,7 @@ export const ParagraphSpacing = Extension.create<ParagraphSpacingOptions>({
 
   addOptions() {
     return {
-      types: ['textStyle'],
+      types: ['paragraph'],
     };
   },
 
@@ -45,11 +45,11 @@ export const ParagraphSpacing = Extension.create<ParagraphSpacingOptions>({
       setParagraphSpacing:
         (spacing: string) =>
         ({ chain }) =>
-          chain().setMark('textStyle', { paragraphSpacing: spacing }).run(),
+          chain().focus().updateAttributes('paragraph', { paragraphSpacing: spacing }).run(),
       unsetParagraphSpacing:
         () =>
         ({ chain }) =>
-          chain().setMark('textStyle', { paragraphSpacing: null }).removeEmptyTextStyle().run(),
+          chain().focus().updateAttributes('paragraph', { paragraphSpacing: null }).run(),
     };
   },
 });

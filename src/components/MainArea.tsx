@@ -385,7 +385,7 @@ export default function MainArea() {
                   max={32}
                   step={1}
                   value={[(() => {
-                    const v = editor.getAttributes("textStyle").paragraphSpacing
+                    const v = editor.getAttributes("paragraph").paragraphSpacing
                     return v ? parseInt(v) : 16
                   })()]}
                   onValueChange={(val) => editor.chain().focus().setParagraphSpacing((Array.isArray(val) ? val[0] : val) + "px").run()}
@@ -404,7 +404,7 @@ export default function MainArea() {
                 </div>
                 <div className="text-center text-xs text-muted-foreground">
                   {(() => {
-                    const v = editor.getAttributes("textStyle").paragraphSpacing
+                    const v = editor.getAttributes("paragraph").paragraphSpacing
                     return v ? `${v}` : "16px"
                   })()}
                 </div>
