@@ -6,6 +6,23 @@ import StarterKit from "@tiptap/starter-kit"
 import Underline from "@tiptap/extension-underline"
 import { TextStyle } from "@tiptap/extension-text-style"
 import { FontSize } from "@/extensions/FontSize"
+import Color from "@tiptap/extension-color"
+import Highlight from "@tiptap/extension-highlight"
+import FontFamily from "@tiptap/extension-font-family"
+import { ParagraphSpacing } from "@/extensions/ParagraphSpacing"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Slider } from "@/components/ui/slider"
+import {
+  Strikethrough,
+  Palette,
+  Highlighter,
+  ArrowUpDown,
+  ChevronDown,
+} from "lucide-react"
 import { useNotes } from "@/contexts/NoteContext"
 import NoteEditor from "./NoteEditor"
 import { Input } from "@/components/ui/input"
@@ -32,6 +49,18 @@ const HEADINGS = [
   { label: "Heading 1", value: "h1" },
   { label: "Heading 2", value: "h2" },
   { label: "Heading 3", value: "h3" },
+]
+const FONTS = [
+  "Arial",
+  "Comic Sans MS",
+  "Consolas",
+  "Courier New",
+  "Georgia",
+  "Helvetica",
+  "Merriweather",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
 ]
 
 export default function MainArea() {
@@ -62,7 +91,11 @@ export default function MainArea() {
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
       TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      FontFamily,
       FontSize,
+      ParagraphSpacing,
     ],
     content: activeNote?.content || "<p></p>",
     editorProps: {
