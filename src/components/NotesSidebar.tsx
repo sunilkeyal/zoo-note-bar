@@ -423,11 +423,9 @@ export default function NotesSidebar() {
                   <SidebarMenu>
                     {adminItems.map((item) => (
                       <SidebarMenuItem key={item.route}>
-                        <SidebarMenuButton asChild isActive={item.route === "/admin" ? pathname === "/admin" : pathname.startsWith(item.route)}>
-                          <Link href={item.route}>
-                            <item.icon />
-                            <span>{item.label}</span>
-                          </Link>
+                        <SidebarMenuButton render={<Link href={item.route} />} isActive={item.route === "/admin" ? pathname === "/admin" : pathname.startsWith(item.route)}>
+                          <item.icon />
+                          <span>{item.label}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
