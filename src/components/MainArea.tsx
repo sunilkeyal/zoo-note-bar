@@ -411,7 +411,7 @@ export default function MainArea() {
         <Input
           value={title}
           onChange={(e) => handleTitleChange(activeNote._id, e.target.value)}
-          className="text-3xl md:text-3xl font-semibold tracking-tight leading-tight border-0 shadow-none px-0 h-auto focus-visible:ring-0"
+          className="text-[21px] font-semibold leading-tight border-0 shadow-none px-0 h-auto focus-visible:ring-0"
           placeholder="Untitled"
         />
         <p className="text-xs text-muted-foreground mt-1">
