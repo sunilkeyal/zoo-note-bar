@@ -19,9 +19,15 @@ interface NoteContextValue {
   deleteNote: (id: string) => Promise<boolean>;
   createFolder: (name: string) => Promise<Folder | null>;
   renameFolder: (id: string, name: string) => Promise<Folder | null>;
-  deleteFolder: (id: string) => Promise<{ deletedNotesCount: number } | null>;
+  deleteFolder: (id: string) => Promise<{ deletedFolder: string; softDeletedNotesCount: number } | null>;
   moveNote: (noteId: string, folderId: string | null, position?: number) => Promise<Note | null>;
   toggleFolder: (folderId: string) => void;
+  trashItems: { notes: Note[]; folders: Folder[] };
+  trashLoading: boolean;
+  trashError: string | null;
+  fetchTrash: () => Promise<void>;
+  restoreItems: (noteIds: string[], folderIds: string[]) => Promise<ApiResponse<{ restoredNotes: number; restoredFolders: number }>>;
+  permanentDeleteItems: (noteIds: string[], folderIds: string[]) => Promise<ApiResponse<{ deletedNotes: number; deletedFolders: number }>>;
 }
 
 const NoteContext = createContext<NoteContextValue | undefined>(undefined);
@@ -51,6 +57,9 @@ export function NoteProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [trashItems, setTrashItems] = useState<{ notes: Note[]; folders: Folder[] }>({ notes: [], folders: [] });
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
 
   const activeNote = notes.find((n) => n._id === activeNoteId) ?? null;
 
@@ -189,7 +198,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const deleteFolder = useCallback(async (id: string): Promise<{ deletedNotesCount: number } | null> => {
+  const deleteFolder = useCallback(async (id: string): Promise<{ deletedFolder: string; softDeletedNotesCount: number } | null> => {
     try {
       const res = await fetch(`/api/folders/${id}`, { method: 'DELETE' });
       const json = await res.json();
@@ -202,6 +211,58 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     } catch {
       return null;
     }
+  }, []);
+
+  const fetchTrash = useCallback(async () => {
+    setTrashLoading(true);
+    setTrashError(null);
+    try {
+      const res = await fetch('/api/trash');
+      const json: ApiResponse<{ notes: Note[]; folders: Folder[] }> = await res.json();
+      if (json.success && json.data) {
+        setTrashItems(json.data);
+      } else {
+        setTrashError(json.error || 'Failed to load trash');
+      }
+    } catch {
+      setTrashError('Failed to load trash');
+    } finally {
+      setTrashLoading(false);
+    }
+  }, []);
+
+  const restoreItems = useCallback(async (noteIds: string[], folderIds: string[]) => {
+    const res = await fetch('/api/trash/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noteIds, folderIds }),
+    });
+    const json: ApiResponse<{ restoredNotes: number; restoredFolders: number }> = await res.json();
+    if (json.success) {
+      setTrashItems((prev) => ({
+        notes: prev.notes.filter((n) => !noteIds.includes(n._id)),
+        folders: prev.folders.filter((f) => !folderIds.includes(f._id)),
+      }));
+      fetchNotes();
+      fetchFolders();
+    }
+    return json;
+  }, [fetchNotes, fetchFolders]);
+
+  const permanentDeleteItems = useCallback(async (noteIds: string[], folderIds: string[]) => {
+    const res = await fetch('/api/trash', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noteIds, folderIds }),
+    });
+    const json: ApiResponse<{ deletedNotes: number; deletedFolders: number }> = await res.json();
+    if (json.success) {
+      setTrashItems((prev) => ({
+        notes: prev.notes.filter((n) => !noteIds.includes(n._id)),
+        folders: prev.folders.filter((f) => !folderIds.includes(f._id)),
+      }));
+    }
+    return json;
   }, []);
 
   const moveNote = useCallback(async (noteId: string, folderId: string | null, position?: number): Promise<Note | null> => {
@@ -256,10 +317,18 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     deleteFolder,
     moveNote,
     toggleFolder,
+    trashItems,
+    trashLoading,
+    trashError,
+    fetchTrash,
+    restoreItems,
+    permanentDeleteItems,
   }), [
     notes, folders, expandedFolders, loading, error, activeNoteId, activeNote,
     setActiveNoteId, fetchNotes, fetchFolders, createNote, updateNote, deleteNote,
     createFolder, renameFolder, deleteFolder, moveNote, toggleFolder,
+    trashItems, trashLoading, trashError,
+    fetchTrash, restoreItems, permanentDeleteItems,
   ]);
 
   return (
