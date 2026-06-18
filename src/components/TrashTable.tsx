@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Note, Folder } from "@/types"
+
 
 function FolderIcon() {
   return (
