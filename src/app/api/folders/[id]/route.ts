@@ -65,7 +65,7 @@ export async function DELETE(
   try {
     objectId = new ObjectId(id)
   } catch {
-    return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 })
+    return NextResponse.json({ success: false, error: "Invalid folder ID format" }, { status: 400 })
   }
 
   const db = await connectToDatabase()
