@@ -22,7 +22,7 @@ export default function DeleteConfirmDialog({ open, onClose, onConfirm }: Props)
         <DialogHeader>
           <DialogTitle>Delete Note</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete this note? This action cannot be undone.
+            Are you sure you want to delete this note? It will be moved to the trash and automatically purged after 7 days.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

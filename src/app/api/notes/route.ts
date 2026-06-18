@@ -13,7 +13,7 @@ export async function GET() {
   const collection = db.collection("notes")
 
   const notes = await collection
-    .find({ userId: session.user.id })
+    .find({ userId: session.user.id, isDeleted: { $ne: true } })
     .project({ title: 1, content: 1, folderId: 1, position: 1, createdAt: 1, updatedAt: 1, userId: 1 })
     .sort({ position: 1, updatedAt: -1 })
     .toArray()

@@ -13,7 +13,7 @@ export async function GET() {
   const collection = db.collection("folders")
 
   const folders = await collection
-    .find({ userId: session.user.id })
+    .find({ userId: session.user.id, isDeleted: { $ne: true } })
     .sort({ createdAt: -1 })
     .toArray()
 

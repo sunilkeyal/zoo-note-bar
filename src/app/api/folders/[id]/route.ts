@@ -71,20 +71,24 @@ export async function DELETE(
   const db = await connectToDatabase()
   const foldersCollection = db.collection("folders")
   const notesCollection = db.collection("notes")
+  const now = new Date()
 
-  const deleteResult = await foldersCollection.deleteOne({ _id: objectId, userId: session.user.id })
+  const folderResult = await foldersCollection.updateOne(
+    { _id: objectId, userId: session.user.id },
+    { $set: { isDeleted: true, deletedAt: now } }
+  )
 
-  if (deleteResult.deletedCount === 0) {
+  if (folderResult.matchedCount === 0) {
     return NextResponse.json({ success: false, error: "Folder not found" }, { status: 404 })
   }
 
-  const notesDelete = await notesCollection.deleteMany({ folderId: id, userId: session.user.id })
+  const notesResult = await notesCollection.updateMany(
+    { folderId: id, userId: session.user.id },
+    { $set: { isDeleted: true, deletedAt: now } }
+  )
 
   return NextResponse.json({
     success: true,
-    data: {
-      deletedFolder: id,
-      deletedNotesCount: notesDelete.deletedCount,
-    },
+    data: { deletedFolder: id, softDeletedNotesCount: notesResult.modifiedCount },
   })
 }

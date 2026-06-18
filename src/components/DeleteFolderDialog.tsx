@@ -30,11 +30,9 @@ export default function DeleteFolderDialog({
         <DialogHeader>
           <DialogTitle>Delete folder?</DialogTitle>
           <DialogDescription>
-            This will permanently delete the folder <strong>&quot;{folderName}&quot;</strong>
-            {notesCount > 0 && (
-              <> and all <strong>{notesCount}</strong> notes inside it</>
-            )}.
-            This action cannot be undone.
+            The folder <strong>&quot;{folderName}&quot;</strong>{notesCount > 0 && (
+              <> with all <strong>{notesCount}</strong> notes inside it</>
+            )} will be moved to the trash and automatically purged after 7 days.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
