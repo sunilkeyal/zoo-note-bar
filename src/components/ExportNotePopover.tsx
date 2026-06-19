@@ -37,8 +37,8 @@ export default function ExportNotePopover({ note, children }: Props) {
       a.click()
       URL.revokeObjectURL(url)
       setOpen(false)
-    } catch {
-      // toast error could go here
+    } catch (err) {
+      console.error("Export failed:", err)
     } finally {
       setExporting(false)
     }
@@ -46,8 +46,7 @@ export default function ExportNotePopover({ note, children }: Props) {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={children}>
-      </PopoverTrigger>
+      <PopoverTrigger render={children} />
       <PopoverContent className="w-64 p-3" align="end">
         <p className="text-sm font-medium mb-3">Export "{note.title}" as:</p>
         <div className="flex flex-col gap-1 mb-3">

@@ -17,11 +17,18 @@ export async function GET(
   const { id } = await params
   const format = request.nextUrl.searchParams.get("format") || "markdown"
 
+  let objectId: ObjectId
+  try {
+    objectId = new ObjectId(id)
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid note ID format" }, { status: 400 })
+  }
+
   const db = await connectToDatabase()
   const collection = db.collection("notes")
 
   const note = await collection.findOne({
-    _id: new ObjectId(id),
+    _id: objectId,
     userId: session.user.id,
     isDeleted: { $ne: true },
   })
@@ -29,6 +36,8 @@ export async function GET(
   if (!note) {
     return NextResponse.json({ success: false, error: "Note not found" }, { status: 404 })
   }
+
+  const safeTitle = note.title.replace(/"/g, "'").replace(/[/\\:*?<>|]/g, "_") || "untitled"
 
   if (format === "markdown") {
     const frontMatter = generateFrontMatter(note.title)
@@ -38,7 +47,7 @@ export async function GET(
     return new NextResponse(content, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${note.title}.md"`,
+        "Content-Disposition": `attachment; filename="${safeTitle}.md"`,
       },
     })
   }
@@ -48,7 +57,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${note.title}.pdf"`,
+        "Content-Disposition": `attachment; filename="${safeTitle}.pdf"`,
       },
     })
   }
