@@ -14,32 +14,33 @@ export async function GET() {
   const notesCollection = db.collection("notes")
   const foldersCollection = db.collection("folders")
 
-  const notes = await notesCollection
-    .find({ userId: session.user.id, isDeleted: { $ne: true } })
-    .sort({ position: 1, updatedAt: -1 })
-    .toArray()
+  const [notes, folders] = await Promise.all([
+    notesCollection
+      .find({ userId: session.user.id, isDeleted: { $ne: true } })
+      .sort({ position: 1, updatedAt: -1 })
+      .toArray(),
+    foldersCollection
+      .find({ userId: session.user.id, isDeleted: { $ne: true } })
+      .toArray(),
+  ])
 
-  const folders = await foldersCollection
-    .find({ userId: session.user.id, isDeleted: { $ne: true } })
-    .toArray()
-
-  const mappedNotes: Note[] = notes.map((n: Record<string, unknown>) => ({
-    _id: String(n._id),
-    title: n.title as string,
-    content: (n.content as string) || "",
-    folderId: (n.folderId as string) || undefined,
-    userId: (n.userId as string) || undefined,
-    position: (n.position as number) ?? 0,
-    createdAt: (n.createdAt as Date).toISOString(),
-    updatedAt: (n.updatedAt as Date).toISOString(),
+  const mappedNotes: Note[] = notes.map((n) => ({
+    _id: n._id.toString(),
+    title: n.title,
+    content: n.content || "",
+    folderId: n.folderId || undefined,
+    userId: n.userId || undefined,
+    position: n.position ?? 0,
+    createdAt: n.createdAt.toISOString(),
+    updatedAt: n.updatedAt.toISOString(),
   }))
 
-  const mappedFolders: Folder[] = folders.map((f: Record<string, unknown>) => ({
-    _id: String(f._id),
-    name: f.name as string,
-    userId: (f.userId as string) || undefined,
-    createdAt: (f.createdAt as Date).toISOString(),
-    updatedAt: (f.updatedAt as Date).toISOString(),
+  const mappedFolders: Folder[] = folders.map((f) => ({
+    _id: f._id.toString(),
+    name: f.name,
+    userId: f.userId || undefined,
+    createdAt: f.createdAt.toISOString(),
+    updatedAt: f.updatedAt.toISOString(),
   }))
 
   if (mappedNotes.length === 0) {
