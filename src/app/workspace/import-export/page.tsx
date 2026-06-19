@@ -149,18 +149,7 @@ export default function ImportExportPage() {
               )}
               {exporting ? "Exporting..." : "Export All Notes (.zip)"}
             </Button>
-            <div className="mt-4 rounded-lg bg-muted p-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Preview structure:</p>
-              <code className="text-xs leading-relaxed block text-muted-foreground">
-                notes-export.zip/<br />
-                &nbsp;&nbsp;├── Work/<br />
-                &nbsp;&nbsp;│&nbsp;&nbsp; ├── Meeting Notes.md<br />
-                &nbsp;&nbsp;│&nbsp;&nbsp; └── Sprint Planning.md<br />
-                &nbsp;&nbsp;├── Personal/<br />
-                &nbsp;&nbsp;│&nbsp;&nbsp; └── Grocery List.md<br />
-                &nbsp;&nbsp;└── Untitled Note.md
-              </code>
-            </div>
+
           </CardContent>
         </Card>
 
