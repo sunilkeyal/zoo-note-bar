@@ -12,12 +12,13 @@ export interface ProcessedFile {
   error?: string
 }
 
-const FRONT_MATTER_REGEX = /^---\n([\s\S]*?)\n---\n\n?([\s\S]*)$/
+const FRONT_MATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?\r?\n?([\s\S]*)$/
 
 export function parseMarkdownFile(content: string): ParsedNote {
-  const match = content.match(FRONT_MATTER_REGEX)
+  const normalized = content.replace(/\r\n/g, "\n")
+  const match = normalized.match(FRONT_MATTER_REGEX)
   if (!match) {
-    return { title: "", content }
+    return { title: "", content: normalized }
   }
 
   const frontMatterRaw = match[1]
@@ -25,9 +26,10 @@ export function parseMarkdownFile(content: string): ParsedNote {
 
   let frontMatter: Record<string, unknown> = {}
   try {
-    frontMatter = yaml.load(frontMatterRaw) as Record<string, unknown>
+    const parsed = yaml.load(frontMatterRaw)
+    frontMatter = (parsed ?? {}) as Record<string, unknown>
   } catch {
-    return { title: "", content }
+    return { title: "", content: normalized }
   }
 
   return {
@@ -44,7 +46,7 @@ export async function processImportFile(
   const lower = filename.toLowerCase()
 
   if (lower.endsWith(".md")) {
-    const parsed = parseMarkdownFile(buffer.toString("utf-8"))
+    const parsed = parseMarkdownFile(buffer.toString())
     return {
       originalFilename: filename,
       notes: [parsed],
@@ -59,12 +61,16 @@ export async function processImportFile(
 
     for (const entry of entries) {
       if (!entry.entryName.toLowerCase().endsWith(".md") || entry.isDirectory) continue
-      const content = entry.getData().toString("utf-8")
+      const content = entry.getData().toString()
       const parsed = parseMarkdownFile(content)
       notes.push(parsed)
     }
 
-    return { originalFilename: filename, notes }
+    const result: ProcessedFile = { originalFilename: filename, notes }
+    if (notes.length === 0 && entries.length > 0) {
+      result.error = "No markdown files found in archive"
+    }
+    return result
   }
 
   return {
