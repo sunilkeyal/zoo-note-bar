@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer"
+import puppeteer, { Browser } from "puppeteer"
 
 const EDITOR_STYLES = `
   body {
@@ -35,20 +35,32 @@ const EDITOR_STYLES = `
   }
 `
 
+let browserPromise: Promise<Browser> | null = null
+
+async function getBrowser(): Promise<Browser> {
+  if (!browserPromise) {
+    browserPromise = puppeteer.launch({ headless: true })
+  }
+  return browserPromise
+}
+
+const SKELETON = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${EDITOR_STYLES}</style>
+</head>
+<body id="pdf-content"></body>
+</html>`
+
 export async function generatePdf(html: string): Promise<Buffer> {
-  const browser = await puppeteer.launch({ headless: true })
+  const browser = await getBrowser()
+  const page = await browser.newPage()
   try {
-    const page = await browser.newPage()
-    await page.setContent(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>${EDITOR_STYLES}</style>
-      </head>
-      <body>${html}</body>
-      </html>
-    `,     { waitUntil: "load" })
+    await page.setContent(SKELETON, { waitUntil: "load" })
+    await page.evaluate((content) => {
+      document.getElementById("pdf-content")!.innerHTML = content
+    }, html)
 
     const pdf = await page.pdf({
       format: "A4",
@@ -58,6 +70,6 @@ export async function generatePdf(html: string): Promise<Buffer> {
 
     return Buffer.from(pdf)
   } finally {
-    await browser.close()
+    await page.close()
   }
 }
