@@ -129,7 +129,7 @@ export default function ImportExportPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Export Card */}
-        <Card className="h-full flex flex-col">
+        <Card className="min-h-[250px]">
           <CardHeader>
             <CardTitle className="text-lg">Export</CardTitle>
             <CardDescription>
@@ -153,7 +153,7 @@ export default function ImportExportPage() {
         </Card>
 
         {/* Import Card */}
-        <Card className="h-full flex flex-col">
+        <Card className="min-h-[250px]">
           <CardHeader>
             <CardTitle className="text-lg">Import</CardTitle>
             <CardDescription>
