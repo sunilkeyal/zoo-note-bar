@@ -1,4 +1,5 @@
-import puppeteer, { Browser } from "puppeteer"
+import puppeteer, { Browser } from "puppeteer-core"
+import chromium from "@sparticuz/chromium"
 
 const EDITOR_STYLES = `
   body {
@@ -39,7 +40,29 @@ let browserPromise: Promise<Browser> | null = null
 
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
-    browserPromise = puppeteer.launch({ headless: true })
+    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_VERSION
+
+    if (isServerless) {
+      browserPromise = puppeteer.launch({
+        args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      })
+    } else {
+      // Locally, prefer full puppeteer (devDep) which bundles Chromium
+      let chromePath: string | undefined
+      try {
+        const { executablePath } = await import("puppeteer")
+        chromePath = await executablePath()
+      } catch {
+        chromePath = process.env.CHROME_PATH
+      }
+      browserPromise = puppeteer.launch({
+        executablePath: chromePath,
+        headless: true,
+      })
+    }
   }
   return browserPromise
 }
