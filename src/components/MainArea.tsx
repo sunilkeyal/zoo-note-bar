@@ -11,6 +11,12 @@ import Highlight from "@tiptap/extension-highlight"
 import FontFamily from "@tiptap/extension-font-family"
 import { ParagraphSpacing } from "@/extensions/ParagraphSpacing"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -162,76 +168,65 @@ export default function MainArea() {
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       {editor && (
         <div className="px-10 pt-2 max-w-[1140px] w-full">
+          <TooltipProvider>
           <div className="flex items-center gap-1 px-3 py-1 border rounded-lg bg-card">
             <ToggleGroup type="multiple" size="sm">
-              <ToggleGroupItem
-                value="bold"
-                pressed={editor.isActive("bold")}
-                onPressedChange={() => editor.chain().focus().toggleBold().run()}
-                className="h-8 w-8"
-              >
-                <Bold className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="italic"
-                pressed={editor.isActive("italic")}
-                onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-                className="h-8 w-8"
-              >
-                <Italic className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="underline"
-                pressed={editor.isActive("underline")}
-                onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-                className="h-8 w-8"
-              >
-                <UnderlineIcon className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="strike"
-                pressed={editor.isActive("strike")}
-                onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-                className="h-8 w-8"
-              >
-                <Strikethrough className="h-4 w-4" />
-              </ToggleGroupItem>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="bold" pressed={editor.isActive("bold")} onPressedChange={() => editor.chain().focus().toggleBold().run()} className="h-8 w-8" />}>
+                  <Bold className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Bold</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="italic" pressed={editor.isActive("italic")} onPressedChange={() => editor.chain().focus().toggleItalic().run()} className="h-8 w-8" />}>
+                  <Italic className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Italic</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="underline" pressed={editor.isActive("underline")} onPressedChange={() => editor.chain().focus().toggleUnderline().run()} className="h-8 w-8" />}>
+                  <UnderlineIcon className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Underline</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="strike" pressed={editor.isActive("strike")} onPressedChange={() => editor.chain().focus().toggleStrike().run()} className="h-8 w-8" />}>
+                  <Strikethrough className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Strikethrough</TooltipContent>
+              </Tooltip>
             </ToggleGroup>
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
             <ToggleGroup type="multiple" size="sm">
-              <ToggleGroupItem
-                value="bulletList"
-                pressed={editor.isActive("bulletList")}
-                onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-                className="h-8 w-8"
-              >
-                <List className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="orderedList"
-                pressed={editor.isActive("orderedList")}
-                onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-                className="h-8 w-8"
-              >
-                <ListOrdered className="h-4 w-4" />
-              </ToggleGroupItem>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="bulletList" pressed={editor.isActive("bulletList")} onPressedChange={() => editor.chain().focus().toggleBulletList().run()} className="h-8 w-8" />}>
+                  <List className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Bullet list</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="orderedList" pressed={editor.isActive("orderedList")} onPressedChange={() => editor.chain().focus().toggleOrderedList().run()} className="h-8 w-8" />}>
+                  <ListOrdered className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Ordered list</TooltipContent>
+              </Tooltip>
             </ToggleGroup>
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
             <Popover>
-              <PopoverTrigger
-                className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent relative"
-                title="Text color"
-              >
-                <Palette className="h-4 w-4" />
-                <span
-                  className="absolute bottom-1 h-[3px] w-3 rounded-full"
-                  style={{ backgroundColor: editor.getAttributes("textStyle").color || "currentColor" }}
-                />
-              </PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger render={<PopoverTrigger className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent relative" />}>
+                  <Palette className="h-4 w-4" />
+                  <span
+                    className="absolute bottom-1 h-[3px] w-3 rounded-full"
+                    style={{ backgroundColor: editor.getAttributes("textStyle").color || "currentColor" }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Text color</TooltipContent>
+              </Tooltip>
               <PopoverContent className="w-[280px] p-3" align="start">
                 <div className="text-sm font-medium mb-2">Text Color</div>
                 <div className="grid grid-cols-8 gap-1.5 mb-2">
@@ -241,7 +236,6 @@ export default function MainArea() {
                       className="h-7 w-7 rounded-md border border-input hover:scale-110 transition-transform"
                       style={{ backgroundColor: c }}
                       onClick={() => editor.chain().focus().setColor(c).run()}
-                      title={c}
                     />
                   ))}
                 </div>
@@ -267,12 +261,12 @@ export default function MainArea() {
             </Popover>
 
             <Popover>
-              <PopoverTrigger
-                className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent"
-                title="Highlight color"
-              >
-                <Highlighter className="h-4 w-4" />
-              </PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger render={<PopoverTrigger className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent" />}>
+                  <Highlighter className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Highlight color</TooltipContent>
+              </Tooltip>
               <PopoverContent className="w-[280px] p-3" align="start">
                 <div className="text-sm font-medium mb-2">Highlight Color</div>
                 <div className="grid grid-cols-5 gap-1.5 mb-2">
@@ -282,7 +276,6 @@ export default function MainArea() {
                       className="h-8 w-full rounded-md border border-input hover:scale-110 transition-transform"
                       style={{ backgroundColor: c }}
                       onClick={() => editor.chain().focus().toggleHighlight({ color: c }).run()}
-                      title={c}
                     />
                   ))}
                 </div>
@@ -308,12 +301,12 @@ export default function MainArea() {
             </Popover>
 
             <Popover>
-              <PopoverTrigger
-                className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent"
-                title="Paragraph spacing"
-              >
-                <ArrowUpDown className="h-4 w-4" />
-              </PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger render={<PopoverTrigger className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent" />}>
+                  <ArrowUpDown className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Paragraph spacing</TooltipContent>
+              </Tooltip>
               <PopoverContent className="w-[260px] p-3" align="start">
                 <div className="text-sm font-medium mb-3">Paragraph Spacing</div>
                 <div className="flex flex-col gap-2">
@@ -354,9 +347,12 @@ export default function MainArea() {
                 chain.run()
               }}
             >
-              <SelectTrigger className="h-7 w-[110px] text-sm">
-                <SelectValue />
-              </SelectTrigger>
+              <Tooltip>
+                <TooltipTrigger render={<SelectTrigger className="h-7 w-[110px] text-sm" />}>
+                  <SelectValue />
+                </TooltipTrigger>
+                <TooltipContent>Styles</TooltipContent>
+              </Tooltip>
               <SelectContent>
                 {HEADINGS.map((h) => (
                   <SelectItem key={h.value} value={h.value} className="text-sm">{h.label}</SelectItem>
@@ -371,9 +367,12 @@ export default function MainArea() {
                 else editor.chain().focus().setFontFamily(val).run()
               }}
             >
-              <SelectTrigger className="h-7 w-[130px] text-sm" style={{ fontFamily: editor.getAttributes("textStyle").fontFamily || "inherit" }}>
-                <SelectValue placeholder="Font" />
-              </SelectTrigger>
+              <Tooltip>
+                <TooltipTrigger render={<SelectTrigger className="h-7 w-[130px] text-sm" style={{ fontFamily: editor.getAttributes("textStyle").fontFamily || "inherit" }} />}>
+                  <SelectValue placeholder="Font" />
+                </TooltipTrigger>
+                <TooltipContent>Font family</TooltipContent>
+              </Tooltip>
               <SelectContent>
                 <SelectItem value="default" className="text-sm">Default</SelectItem>
                 {FONTS.map((f) => (
@@ -393,9 +392,12 @@ export default function MainArea() {
               })()}
               onValueChange={(val) => editor.chain().focus().setFontSize(val + "px").run()}
             >
-              <SelectTrigger className="h-7 w-[70px] text-sm">
-                <SelectValue />
-              </SelectTrigger>
+              <Tooltip>
+                <TooltipTrigger render={<SelectTrigger className="h-7 w-[70px] text-sm" />}>
+                  <SelectValue />
+                </TooltipTrigger>
+                <TooltipContent>Font size</TooltipContent>
+              </Tooltip>
               <SelectContent>
                 {FONT_SIZES.map((s) => (
                   <SelectItem key={s} value={s} className="text-sm">{s}</SelectItem>
@@ -404,6 +406,7 @@ export default function MainArea() {
             </Select>
 
           </div>
+          </TooltipProvider>
         </div>
       )}
 

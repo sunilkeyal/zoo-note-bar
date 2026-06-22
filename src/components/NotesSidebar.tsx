@@ -5,6 +5,12 @@ import { useNotes } from "@/contexts/NoteContext"
 import DeleteConfirmDialog from "./DeleteConfirmDialog"
 import DeleteFolderDialog from "./DeleteFolderDialog"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip"
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -412,11 +418,11 @@ export default function NotesSidebar() {
                     </CollapsibleTrigger>
                   } />
                   <ContextMenuContent>
-                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleRenameFromContextMenu(folder._id, folder.name) }}>
-                      <Pencil /> Rename
-                    </ContextMenuItem>
                     <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleCreateInFolder(folder._id) }}>
                       <Plus /> Create new note
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleRenameFromContextMenu(folder._id, folder.name) }}>
+                      <Pencil /> Rename
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     <ContextMenuItem onClick={(e) => { e.stopPropagation(); setDeleteFolderTarget(folder) }}>
@@ -455,27 +461,34 @@ export default function NotesSidebar() {
             <Pen className="size-5" />
             <span className="text-sm font-semibold">Notes</span>
           </div>
+          <TooltipProvider delay={0}>
           <div className="flex items-center gap-0.5 px-1 pb-1">
-            <Button variant="ghost" size="icon"
-              onClick={() => folders.forEach((f) => { if (!expandedFolders.has(f._id)) toggleFolder(f._id) })}>
-              <ChevronsDownUp />
-            </Button>
-            <Button variant="ghost" size="icon"
-              onClick={() => folders.forEach((f) => { if (expandedFolders.has(f._id)) toggleFolder(f._id) })}>
-              <ChevronsUpDown />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleCreate}>
-              <Plus />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleCreateFolder}>
-              <FolderIcon />
-            </Button>
-            <Button variant="ghost" size="icon"
-              onClick={() => setSearchOpen(!searchOpen)}
-              className={searchOpen ? "text-sidebar-accent-foreground" : ""}>
-              <Search />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={() => folders.forEach((f) => { if (!expandedFolders.has(f._id)) toggleFolder(f._id) })} />}>
+                <ChevronsDownUp />
+              </TooltipTrigger>
+              <TooltipContent>Expand all</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={() => folders.forEach((f) => { if (expandedFolders.has(f._id)) toggleFolder(f._id) })} />}>
+                <ChevronsUpDown />
+              </TooltipTrigger>
+              <TooltipContent>Collapse all</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={handleCreateFolder} />}>
+                <FolderIcon />
+              </TooltipTrigger>
+              <TooltipContent>New folder</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={() => setSearchOpen(!searchOpen)} className={searchOpen ? "text-sidebar-accent-foreground" : ""} />}>
+                <Search />
+              </TooltipTrigger>
+              <TooltipContent>Search</TooltipContent>
+            </Tooltip>
           </div>
+          </TooltipProvider>
           {searchOpen && (
             <div className="px-1 pb-2">
               <form onSubmit={(e) => e.preventDefault()}>
