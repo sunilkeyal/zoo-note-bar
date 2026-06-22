@@ -282,6 +282,10 @@ export default function NotesSidebar() {
 
   const cancelRename = () => { setRenamingId(null); setRenameValue("") }
 
+  const handleRenameFromContextMenu = (id: string, name: string) => {
+    setTimeout(() => startRenaming(id, name), 0)
+  }
+
   const handleDragStart = (e: DragEvent, noteId: string) => {
     e.dataTransfer.setData("text/plain", noteId)
     e.dataTransfer.effectAllowed = "move"
@@ -347,7 +351,7 @@ export default function NotesSidebar() {
             </SidebarMenuSubButton>
           } />
           <ContextMenuContent>
-            <ContextMenuItem onClick={(e) => { e.stopPropagation(); startRenaming(note._id, note.title) }}>
+            <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleRenameFromContextMenu(note._id, note.title) }}>
               <Pencil /> Rename
             </ContextMenuItem>
             <ContextMenuSub>
@@ -408,7 +412,7 @@ export default function NotesSidebar() {
                     </CollapsibleTrigger>
                   } />
                   <ContextMenuContent>
-                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); startRenaming(folder._id, folder.name) }}>
+                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleRenameFromContextMenu(folder._id, folder.name) }}>
                       <Pencil /> Rename
                     </ContextMenuItem>
                     <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleCreateInFolder(folder._id) }}>
