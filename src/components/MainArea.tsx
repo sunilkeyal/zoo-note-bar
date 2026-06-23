@@ -10,6 +10,8 @@ import Color from "@tiptap/extension-color"
 import Highlight from "@tiptap/extension-highlight"
 import FontFamily from "@tiptap/extension-font-family"
 import { ParagraphSpacing } from "@/extensions/ParagraphSpacing"
+import TaskList from "@tiptap/extension-task-list"
+import { CustomTaskItem } from "@/extensions/TaskItem"
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +48,7 @@ import {
   Underline as UnderlineIcon,
   List,
   ListOrdered,
+  ListChecks,
 } from "lucide-react"
 
 const FONT_SIZES = ["13", "14", "15", "16", "17", "18", "20", "24", "30"]
@@ -123,6 +126,8 @@ export default function MainArea() {
       FontFamily,
       FontSize,
       ParagraphSpacing,
+      TaskList,
+      CustomTaskItem.configure({ nested: true }),
     ],
     content: activeNote?.content || "<p></p>",
     editorProps: {
@@ -211,6 +216,12 @@ export default function MainArea() {
                   <ListOrdered className="h-4 w-4" />
                 </TooltipTrigger>
                 <TooltipContent>Ordered list</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger render={<ToggleGroupItem value="taskList" pressed={editor.isActive("taskList")} onPressedChange={() => editor.chain().focus().toggleTaskList().run()} className="h-8 w-8" />}>
+                  <ListChecks className="h-4 w-4" />
+                </TooltipTrigger>
+                <TooltipContent>Todo list</TooltipContent>
               </Tooltip>
             </ToggleGroup>
 
