@@ -54,7 +54,6 @@ import {
   ChevronsDownUp,
   Trash2,
   Pencil,
-  Pen,
   Search,
   Briefcase,
   User,
@@ -458,8 +457,8 @@ export default function NotesSidebar() {
       <Sidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-1 py-1">
-            <Pen className="size-5" />
-            <span className="text-sm font-semibold">Notes</span>
+            <img src="/vertexnote.png" alt="VertexNote" className="size-6 rounded-sm" />
+            <span className="text-sm font-semibold">VertexNote</span>
           </div>
           <TooltipProvider delay={0}>
           <div className="flex items-center gap-0.5 px-1 pb-1">
