@@ -37,6 +37,8 @@ function LoginForm() {
 
   return (
     <div className="flex min-h-svh items-center justify-center p-4">
+      <div className="w-full max-w-sm flex flex-col items-center gap-4">
+        <img src="/vertexnote.png" alt="VertexNote" className="size-16 rounded-xl" />
       <Card className="w-full max-w-sm">
         <form onSubmit={handleSubmit}>
           <CardHeader>
@@ -107,6 +109,7 @@ function LoginForm() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   )
 }
