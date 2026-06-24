@@ -1,6 +1,6 @@
 import { MongoClient, Db } from 'mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/notes-app';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/zoo-note-bar';
 
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
