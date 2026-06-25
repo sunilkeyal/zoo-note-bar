@@ -12,15 +12,24 @@ async function getAdminSession() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
   }
 
+  const { id } = await params
+
+  let objectId: ObjectId
+  try {
+    objectId = new ObjectId(id)
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid user ID format" }, { status: 400 })
+  }
+
   const db = await connectToDatabase()
-  const user = await db.collection("users").findOne({ _id: new ObjectId(params.id) })
+  const user = await db.collection("users").findOne({ _id: objectId })
 
   if (!user) {
     return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
@@ -42,17 +51,26 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
   }
 
+  const { id } = await params
+
+  let objectId: ObjectId
+  try {
+    objectId = new ObjectId(id)
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid user ID format" }, { status: 400 })
+  }
+
   const body = await request.json()
   const db = await connectToDatabase()
 
-  const user = await db.collection("users").findOne({ _id: new ObjectId(params.id) })
+  const user = await db.collection("users").findOne({ _id: objectId })
   if (!user) {
     return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
   }
@@ -69,6 +87,14 @@ export async function PUT(
   if (body.role !== undefined) {
     if (!["admin", "user"].includes(body.role)) {
       return NextResponse.json({ success: false, error: "Invalid role" }, { status: 400 })
+    }
+    if (body.role !== user.role) {
+      if (user.role === "admin" && body.role !== "admin") {
+        const adminCount = await db.collection("users").countDocuments({ role: "admin" })
+        if (adminCount <= 1) {
+          return NextResponse.json({ success: false, error: "Cannot change role of the last admin" }, { status: 400 })
+        }
+      }
     }
     update.role = body.role
   }
@@ -89,11 +115,11 @@ export async function PUT(
   update.updatedAt = new Date()
 
   await db.collection("users").updateOne(
-    { _id: new ObjectId(params.id) },
+    { _id: objectId },
     { $set: update }
   )
 
-  const updated = await db.collection("users").findOne({ _id: new ObjectId(params.id) })
+  const updated = await db.collection("users").findOne({ _id: objectId })
 
   return NextResponse.json({
     success: true,
@@ -111,15 +137,24 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
   }
 
+  const { id } = await params
+
+  let objectId: ObjectId
+  try {
+    objectId = new ObjectId(id)
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid user ID format" }, { status: 400 })
+  }
+
   const db = await connectToDatabase()
-  const user = await db.collection("users").findOne({ _id: new ObjectId(params.id) })
+  const user = await db.collection("users").findOne({ _id: objectId })
 
   if (!user) {
     return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
@@ -132,11 +167,11 @@ export async function DELETE(
     }
   }
 
-  const userId = params.id
+  const userId = id
 
   await db.collection("notes").deleteMany({ userId })
   await db.collection("folders").deleteMany({ userId })
-  await db.collection("users").deleteOne({ _id: new ObjectId(params.id) })
+  await db.collection("users").deleteOne({ _id: objectId })
 
   return NextResponse.json({ success: true })
 }
