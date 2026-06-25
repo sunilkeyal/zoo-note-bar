@@ -23,6 +23,7 @@ vi.mock("@/lib/password", () => ({
 
 vi.mock("@/lib/email", () => ({
   sendUserWelcomeEmail: vi.fn().mockResolvedValue(undefined),
+  sendPasswordResetByAdminEmail: vi.fn().mockResolvedValue(undefined),
 }))
 
 beforeEach(() => {
@@ -328,6 +329,204 @@ describe("POST /api/admin/users", () => {
       body: JSON.stringify({ email: "new@test.com", displayName: "New", role: "superadmin" }),
     })
     const res = await POST(req)
+    expect(res.status).toBe(400)
+  })
+})
+
+describe("GET /api/admin/users/[id]", () => {
+  it("returns 401 if not authenticated", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue(null)
+
+    const { GET } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001")
+    const res = await GET(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(401)
+  })
+
+  it("returns user without passwordHash", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    })
+
+    const { GET } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001")
+    const res = await GET(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.email).toBe("u@u.com")
+    expect(body.data.passwordHash).toBeUndefined()
+  })
+
+  it("returns 404 if not found", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue(null),
+    })
+
+    const { GET } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000999")
+    const res = await GET(req, { params: { id: "000000000000000000000999" } })
+    expect(res.status).toBe(404)
+  })
+})
+
+describe("PUT /api/admin/users/[id]", () => {
+  it("updates user fields", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const mockUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn()
+        .mockResolvedValueOnce({
+          _id: { toString: () => "000000000000000000000001" },
+          email: "u@u.com",
+          displayName: "Old Name",
+          role: "user",
+        })
+        .mockResolvedValueOnce({
+          _id: { toString: () => "000000000000000000000001" },
+          email: "u@u.com",
+          displayName: "New Name",
+          role: "admin",
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      updateOne: mockUpdateOne,
+      countDocuments: vi.fn().mockResolvedValue(2),
+    })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName: "New Name", role: "admin" }),
+    })
+    const res = await PUT(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.displayName).toBe("New Name")
+  })
+
+  it("prevents disabling the last admin", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "admin@test.com",
+        role: "admin",
+      }),
+      countDocuments: vi.fn().mockResolvedValue(1),
+    })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: false }),
+    })
+    const res = await PUT(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain("last admin")
+  })
+})
+
+describe("POST /api/admin/users/[id]/reset-password", () => {
+  it("resets password and returns temporary password", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+      }),
+      updateOne: vi.fn().mockResolvedValue({ modifiedCount: 1 }),
+    })
+
+    const { POST } = await import("@/app/api/admin/users/[id]/reset-password/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001/reset-password", { method: "POST" })
+    const res = await POST(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.temporaryPassword).toBe("GenPass123!")
+  })
+
+  it("returns 404 if user not found", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue(null),
+    })
+
+    const { POST } = await import("@/app/api/admin/users/[id]/reset-password/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000999/reset-password", { method: "POST" })
+    const res = await POST(req, { params: { id: "000000000000000000000999" } })
+    expect(res.status).toBe(404)
+  })
+})
+
+describe("DELETE /api/admin/users/[id]", () => {
+  it("deletes user and their data", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "delete@test.com",
+        role: "user",
+      }),
+      countDocuments: vi.fn().mockResolvedValue(2),
+      deleteMany: vi.fn().mockResolvedValue({ deletedCount: 5 }),
+      deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+    })
+
+    const { DELETE } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", { method: "DELETE" })
+    const res = await DELETE(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+  })
+
+  it("prevents deleting the last admin", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    mockCollection.mockReturnValue({
+      findOne: vi.fn().mockResolvedValue({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "admin@test.com",
+        role: "admin",
+      }),
+      countDocuments: vi.fn().mockResolvedValue(1),
+    })
+
+    const { DELETE } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", { method: "DELETE" })
+    const res = await DELETE(req, { params: { id: "000000000000000000000001" } })
     expect(res.status).toBe(400)
   })
 })
