@@ -158,6 +158,47 @@ describe("GET /api/admin/users", () => {
     expect(findCall.isActive).toBe(false)
   })
 
+  it("filters by status=active using $ne:false", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { role: "admin" } } as any)
+
+    const mockFind = vi.fn().mockReturnValue({
+      sort: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
+    })
+    mockCollection.mockReturnValue({ find: mockFind, countDocuments: vi.fn().mockResolvedValue(0) })
+
+    const { GET } = await import("@/app/api/admin/users/route")
+    const req = new Request("http://localhost/api/admin/users?status=active")
+    await GET(req)
+
+    const findCall = mockFind.mock.calls[0][0]
+    expect(findCall.isActive).toEqual({ $ne: false })
+  })
+
+  it("filters by search and status=active together", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { role: "admin" } } as any)
+
+    const mockFind = vi.fn().mockReturnValue({
+      sort: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([]),
+    })
+    mockCollection.mockReturnValue({ find: mockFind, countDocuments: vi.fn().mockResolvedValue(0) })
+
+    const { GET } = await import("@/app/api/admin/users/route")
+    const req = new Request("http://localhost/api/admin/users?search=alice&status=active")
+    await GET(req)
+
+    const findCall = mockFind.mock.calls[0][0]
+    expect(findCall.isActive).toEqual({ $ne: false })
+    expect(findCall.$or).toBeDefined()
+  })
+
   it("clamps limit to max 50", async () => {
     const { auth } = await import("@/lib/auth")
     vi.mocked(auth).mockResolvedValue({ user: { role: "admin" } } as any)

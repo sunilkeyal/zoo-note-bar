@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
+import { MongoServerError } from "mongodb"
 import { generatePassword } from "@/lib/password"
 import { sendUserWelcomeEmail } from "@/lib/email"
 
@@ -34,13 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (status === "active") {
-    const activeFilter = [{ isActive: { $exists: false } }, { isActive: true }]
-    if (filter.$or) {
-      filter.$and = [{ $or: filter.$or }, { $or: activeFilter }]
-      delete filter.$or
-    } else {
-      filter.$or = activeFilter
-    }
+    filter.isActive = { $ne: false }
   } else if (status === "disabled") {
     filter.isActive = false
   }
@@ -70,64 +65,77 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-  }
-  if (session.user.role !== "admin") {
-    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
-  }
+  try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+    if (session.user.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
+    }
 
-  const body = await request.json()
-  const { email, displayName, role } = body
+    const body = await request.json()
+    const { email, displayName, role } = body
 
-  if (!email || !displayName || !role) {
-    return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
-  }
+    if (!email || !displayName || !role) {
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+    }
 
-  if (!["admin", "user"].includes(role)) {
-    return NextResponse.json({ success: false, error: "Invalid role" }, { status: 400 })
-  }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const normalizedEmail = email.toLowerCase().trim()
+    if (!emailRegex.test(normalizedEmail)) {
+      return NextResponse.json({ success: false, error: "Invalid email format" }, { status: 400 })
+    }
 
-  const db = await connectToDatabase()
-  const normalizedEmail = email.toLowerCase().trim()
+    if (!["admin", "user"].includes(role)) {
+      return NextResponse.json({ success: false, error: "Invalid role" }, { status: 400 })
+    }
 
-  const existing = await db.collection("users").findOne({ email: normalizedEmail })
-  if (existing) {
-    return NextResponse.json({ success: false, error: "Email already exists" }, { status: 409 })
-  }
+    const db = await connectToDatabase()
 
-  const password = generatePassword()
-  const passwordHash = await bcrypt.hash(password, 12)
-  const now = new Date()
+    const existing = await db.collection("users").findOne({ email: normalizedEmail })
+    if (existing) {
+      return NextResponse.json({ success: false, error: "Email already exists" }, { status: 409 })
+    }
 
-  const result = await db.collection("users").insertOne({
-    email: normalizedEmail,
-    displayName,
-    passwordHash,
-    role,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  })
+    const password = generatePassword()
+    const passwordHash = await bcrypt.hash(password, 12)
+    const now = new Date()
 
-  sendUserWelcomeEmail(normalizedEmail, password).catch((err) =>
-    console.error("[Admin] Failed to send welcome email:", err)
-  )
+    const result = await db.collection("users").insertOne({
+      email: normalizedEmail,
+      displayName,
+      passwordHash,
+      role,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    })
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      user: {
-        _id: result.insertedId.toString(),
-        email: normalizedEmail,
-        displayName,
-        role,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now,
+    sendUserWelcomeEmail(normalizedEmail, password).catch((err) =>
+      console.error("[Admin] Failed to send welcome email:", err)
+    )
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        user: {
+          _id: result.insertedId.toString(),
+          email: normalizedEmail,
+          displayName,
+          role,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+        temporaryPassword: password,
       },
-      temporaryPassword: password,
-    },
-  }, { status: 201 })
+    }, { status: 201 })
+  } catch (error) {
+    if (error instanceof MongoServerError && error.code === 11000) {
+      return NextResponse.json({ success: false, error: "Email already exists" }, { status: 409 })
+    }
+    console.error("[Admin] Failed to create user:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
 }
