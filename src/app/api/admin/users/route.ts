@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log("[POST /api/admin/users] ENTERED", { method: request.method, url: request.url })
   try {
     const session = await auth()
     if (!session?.user) {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log("[POST /api/admin/users] BODY", body)
     const { email, displayName, role } = body
 
     if (!email || !displayName || !role) {

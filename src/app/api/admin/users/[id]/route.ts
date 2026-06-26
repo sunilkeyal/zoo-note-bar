@@ -53,12 +53,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log("[PUT /api/admin/users/:id] ENTERED", { method: request.method, url: request.url })
   const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
   }
 
   const { id } = await params
+  console.log("[PUT /api/admin/users/:id] ID", id)
 
   const currentUserId = session?.user?.id
   if (currentUserId && currentUserId === id) {
@@ -73,6 +75,7 @@ export async function PUT(
   }
 
   const body = await request.json()
+  console.log("[PUT /api/admin/users/:id] BODY", body)
   const db = await connectToDatabase()
 
   const user = await db.collection("users").findOne({ _id: objectId })
