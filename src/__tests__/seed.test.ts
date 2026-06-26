@@ -93,9 +93,10 @@ describe('ensureAdmin', () => {
     const mockDb = {
       collection: vi.fn().mockReturnThis(),
       findOne: vi.fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(adminUser),
+        .mockResolvedValueOnce(null)      // findOne({ role: "admin" }) → no admin → seed
+        .mockResolvedValueOnce(null)      // findOne({ email: "admin@example.com" }) → not found → create
+        .mockResolvedValueOnce(null)      // findOne({ email: "user@example.com" }) → not found → create
+        .mockResolvedValueOnce(adminUser), // findOne({ email: "admin@example.com" }) → found → migration
       insertOne: vi.fn(),
       updateMany: vi.fn(),
     }

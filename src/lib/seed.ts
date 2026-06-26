@@ -26,23 +26,32 @@ export async function ensureAdmin() {
       }
 
       const db = await connectToDatabase()
-      for (const u of seedUsers) {
-        const existing = await db.collection("users").findOne({ email: u.email })
-        if (!existing) {
-          const hash = await bcrypt.hash(u.password, 12)
-          await db.collection("users").insertOne({
-            email: u.email,
-            displayName: u.displayName,
-            passwordHash: hash,
-            role: u.role,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
+
+      // Only seed default users if no admin exists in the database.
+      // This prevents reseeding on hot reload after an admin user has been
+      // created, renamed, or deleted by the admin panel.
+      const existingAdmin = await db.collection("users").findOne({ role: "admin" })
+      if (!existingAdmin) {
+        for (const u of seedUsers) {
+          const existing = await db.collection("users").findOne({ email: u.email })
+          if (!existing) {
+            const hash = await bcrypt.hash(u.password, 12)
+            await db.collection("users").insertOne({
+              email: u.email,
+              displayName: u.displayName,
+              passwordHash: hash,
+              role: u.role,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+          }
         }
       }
 
-      // Migrate existing notes/folders without userId to the admin user
-      const adminUser = await db.collection("users").findOne({ email: "admin@example.com" })
+      // Migrate existing notes/folders without userId to the first admin user
+      const adminUser = await db.collection("users").findOne(
+        existingAdmin ? { _id: existingAdmin._id } : { email: "admin@example.com" }
+      )
       if (adminUser) {
         const adminId = adminUser._id.toString()
         await db.collection("notes").updateMany(
