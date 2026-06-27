@@ -56,16 +56,17 @@ All three methods call the same `uploadImage(file)` helper:
 ## Image Resize in Editor
 
 - Custom NodeView wrapping the image with a React component
-- On selection, image gets a blue border with a resize handle at bottom-right corner
-- Dragging resize handle updates `width`, height scales proportionally
-- Resize state persisted to note content via the HTML attributes
+- On selection, image gets a blue border with resize handles at all four corners (nw, ne, sw, se)
+- Each handle shows the correct cursor (`nw-resize`, `ne-resize`, `sw-resize`, `se-resize`)
+- Dragging any handle updates `width` and `height` proportionally based on the natural aspect ratio
+- Resize state persisted to note content via HTML `width` and `height` attributes (e.g. `width="400px" height="300px"`)
 
 ## Image Drag to Reposition
 
-- Custom NodeView with a visible 6-dot grip handle (⠿) on hover/selection
-- Only the handle initiates drag, preventing accidental moves when clicking the image
-- Drag ghost shows during repositioning
-- Uses ProseMirror's node dragging infrastructure triggered by the handle
+- Entire image serves as the drag handle via `data-drag-handle` on the container div
+- No visible drag icon — clicking anywhere on the image initiates a drag
+- Uses ProseMirror's node dragging infrastructure
+- After drag completes, `selectNode` callback re-selects the node so resize handles reappear
 
 ## API Routes
 
@@ -81,7 +82,23 @@ All three methods call the same `uploadImage(file)` helper:
 - Validates `id` as a valid GridFS ObjectId
 - Fetches from GridFS, streams with correct `Content-Type` header
 - Returns 404 if not found
-- Currently no auth check (images are served by ID — obscure enough for a personal tool; can add auth if needed)
+- No auth check (images are served by ID — obscure enough for a personal tool; can add auth if needed)
+- Must be excluded from Next.js auth middleware so Puppeteer can fetch images during PDF export
+
+## PDF Export Image Support
+
+Images in notes are stored with relative URLs (`/api/images/<id>`). During PDF export:
+
+1. **URL rewriting:** `resolveRelativeImages()` rewrites `src="/api/images/..."` to `src="<origin>/api/images/..."` using the origin of the export request
+2. **Auth bypass:** The middleware must exclude `/api/images` routes so Puppeteer's unauthenticated headless browser can fetch images
+3. **Loading wait:** After setting HTML content via `page.setContent`, the code waits for all `<img>` elements to finish loading (or error) before generating the PDF
+4. **Stretch prevention:** CSS `img { max-width: 100%; height: auto; }` prevents vertical stretching when explicit `width`/`height` attributes are constrained by the narrower PDF page
+5. **Headless mode:** Uses `headless: true` (new headless) with `--window-position=-9999,-9999` to prevent the Chromium window from appearing on screen
+
+## Middleware
+
+- Next.js auth middleware excludes `api/images` from authentication checks
+- This enables both the editor (authenticated browser) and PDF export (unauthenticated Puppeteer) to load images
 
 ## Orphan Cleanup
 

@@ -1,14 +1,23 @@
 import React, { useCallback, useRef, useState } from 'react'
 import { NodeViewProps, NodeViewWrapper } from '@tiptap/react'
 
-export default function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewProps) {
+export default function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: NodeViewProps) {
   const { src, width, height } = node.attrs
   const [resizing, setResizing] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
   const startXRef = useRef(0)
   const startWidthRef = useRef(0)
 
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
+  const selectNode = useCallback(() => {
+    if (editor && typeof getPos === 'function') {
+      const pos = getPos()
+      if (typeof pos === 'number') {
+        editor.chain().focus().setNodeSelection(pos).run()
+      }
+    }
+  }, [editor, getPos])
+
+  const onResizeStart = useCallback((e: React.MouseEvent, direction: 'nw' | 'ne' | 'sw' | 'se') => {
     e.preventDefault()
     e.stopPropagation()
     setResizing(true)
@@ -16,7 +25,9 @@ export default function ImageNodeView({ node, updateAttributes, selected, editor
     startWidthRef.current = imageRef.current?.offsetWidth || 400
 
     const onMouseMove = (ev: MouseEvent) => {
-      const delta = ev.clientX - startXRef.current
+      const delta = (direction === 'se' || direction === 'ne')
+        ? ev.clientX - startXRef.current
+        : startXRef.current - ev.clientX
       const newWidth = Math.max(100, startWidthRef.current + delta)
       const aspect = (imageRef.current?.naturalHeight || 1) / (imageRef.current?.naturalWidth || 1)
       updateAttributes({ width: `${newWidth}px`, height: `${Math.round(newWidth * aspect)}px` })
@@ -34,17 +45,12 @@ export default function ImageNodeView({ node, updateAttributes, selected, editor
 
   return (
     <NodeViewWrapper className="image-node-wrapper">
-      <div className={`relative inline-block group ${selected ? 'ring-2 ring-blue-500 rounded' : ''}`}>
-        {selected && (
-          <div
-            className="absolute -left-8 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-8 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground select-none"
-            contentEditable={false}
-            draggable="true"
-            data-drag-handle=""
-          >
-            <span className="text-lg leading-none tracking-tighter" style={{ letterSpacing: '-2px', fontSize: '18px' }}>⠿</span>
-          </div>
-        )}
+      <div
+        className={`relative inline-block group ${selected ? 'ring-2 ring-blue-500 rounded' : ''}`}
+        data-drag-handle
+        onClick={selectNode}
+        style={{ cursor: 'grab' }}
+      >
         <img
           ref={imageRef}
           src={src}
@@ -54,13 +60,19 @@ export default function ImageNodeView({ node, updateAttributes, selected, editor
           draggable={false}
           alt=""
         />
-        {selected && (
+        {selected && (['nw', 'ne', 'sw', 'se'] as const).map((dir) => (
           <div
-            className="absolute bottom-1 right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-sm cursor-se-resize hover:scale-110 transition-transform"
-            onMouseDown={onMouseDown}
-            style={{ pointerEvents: resizing ? 'none' : 'auto' }}
+            key={dir}
+            className="absolute w-3 h-3 bg-blue-500 border-2 border-white rounded-sm hover:scale-110 transition-transform"
+            style={{
+              [dir.includes('n') ? 'top' : 'bottom']: '-5px',
+              [dir.includes('w') ? 'left' : 'right']: '-5px',
+              pointerEvents: resizing ? 'none' : ('auto' as const),
+              cursor: `${dir}-resize`,
+            }}
+            onMouseDown={(e) => onResizeStart(e, dir)}
           />
-        )}
+        ))}
       </div>
     </NodeViewWrapper>
   )

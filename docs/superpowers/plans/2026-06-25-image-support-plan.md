@@ -396,50 +396,65 @@ Create `src/components/ImageNodeView.tsx`:
 import React, { useCallback, useRef, useState } from 'react'
 import { NodeViewProps, NodeViewWrapper } from '@tiptap/react'
 
-export default function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewProps) {
-  const { src, width, height } = node.attrs
-  const [resizing, setResizing] = useState(false)
-  const imageRef = useRef<HTMLImageElement>(null)
-  const startXRef = useRef(0)
-  const startWidthRef = useRef(0)
+type ResizeDir = "nw" | "ne" | "sw" | "se"
 
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
+export default function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: NodeViewProps) {
+  const { src, width, height } = node.attrs
+  const [resizing, setResizing] = useState<ResizeDir | null>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
+
+  const onResizeStart = useCallback((dir: ResizeDir, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setResizing(true)
-    startXRef.current = e.clientX
-    startWidthRef.current = imageRef.current?.offsetWidth || 400
+    setResizing(dir)
+    const img = imageRef.current
+    if (!img) return
+    const startX = e.clientX
+    const startY = e.clientY
+    const startW = img.offsetWidth
+    const startH = img.offsetHeight
+    const aspect = img.naturalWidth / img.naturalHeight
 
     const onMouseMove = (ev: MouseEvent) => {
-      const delta = ev.clientX - startXRef.current
-      const newWidth = Math.max(100, startWidthRef.current + delta)
-      const aspect = (imageRef.current?.naturalHeight || 1) / (imageRef.current?.naturalWidth || 1)
-      updateAttributes({ width: `${newWidth}px`, height: `${Math.round(newWidth * aspect)}px` })
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      let newW = startW
+      if (dir === "nw" || dir === "sw") newW = Math.max(100, startW - dx)
+      if (dir === "ne" || dir === "se") newW = Math.max(100, startW + dx)
+      const newH = Math.round(newW / aspect)
+      updateAttributes({ width: `${newW}px`, height: `${newH}px` })
     }
 
     const onMouseUp = () => {
-      setResizing(false)
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
+      setResizing(null)
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
     }
 
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
   }, [updateAttributes])
+
+  const handleClick = useCallback(() => {
+    if (editor.isFocused && typeof getPos === "function") {
+      editor.chain().focus().setNodeSelection(getPos()).run()
+    }
+  }, [editor, getPos])
+
+  const dirs: { dir: ResizeDir; style: string }[] = [
+    { dir: "nw", style: "top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nw-resize" },
+    { dir: "ne", style: "top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-ne-resize" },
+    { dir: "sw", style: "bottom-0 left-0 -translate-x-1/2 translate-y-1/2 cursor-sw-resize" },
+    { dir: "se", style: "bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-se-resize" },
+  ]
 
   return (
     <NodeViewWrapper className="image-node-wrapper">
-      <div className={`relative inline-block group ${selected ? 'ring-2 ring-blue-500 rounded' : ''}`}>
-        {selected && (
-          <div
-            className="absolute -left-8 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-8 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground select-none"
-            contentEditable={false}
-            draggable="true"
-            data-drag-handle=""
-          >
-            <span className="text-lg leading-none tracking-tighter" style={{ letterSpacing: '-2px', fontSize: '18px' }}>⠿</span>
-          </div>
-        )}
+      <div
+        className={`relative inline-block leading-none ${selected ? "ring-2 ring-blue-500 rounded overflow-hidden" : ""}`}
+        data-drag-handle=""
+        onClick={handleClick}
+      >
         <img
           ref={imageRef}
           src={src}
@@ -449,13 +464,14 @@ export default function ImageNodeView({ node, updateAttributes, selected, editor
           draggable={false}
           alt=""
         />
-        {selected && (
+        {selected && dirs.map(({ dir, style }) => (
           <div
-            className="absolute bottom-1 right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-sm cursor-se-resize hover:scale-110 transition-transform"
-            onMouseDown={onMouseDown}
-            style={{ pointerEvents: resizing ? 'none' : 'auto' }}
+            key={dir}
+            className={`absolute w-3 h-3 bg-blue-500 border-2 border-white rounded-sm ${style}`}
+            style={{ pointerEvents: resizing ? "none" : "auto" }}
+            onMouseDown={(e) => onResizeStart(dir, e)}
           />
-        )}
+        ))}
       </div>
     </NodeViewWrapper>
   )
@@ -676,4 +692,86 @@ Expected: Build succeeds
 ```bash
 git add src/app/api/notes/[id]/route.ts
 git commit -m "feat: add orphan image cleanup on note update"
+```
+
+---
+
+### Task 8: Add image support to PDF export
+
+**Files:**
+- Modify: `src/lib/pdf.ts`
+- Modify: `src/middleware.ts`
+
+**Context:** Images use relative URLs (`/api/images/<id>`). Puppeteer's headless browser has no auth session, so the auth middleware must exclude `api/images`. URLs need rewriting to absolute before rendering.
+
+- [ ] **Step 1: Exclude `api/images` from auth middleware**
+
+In `src/middleware.ts`, add `api/images` to the middleware's exclusion matcher:
+
+```ts
+export const config = {
+  matcher: ["/((?!login|api/auth|api/images|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg|.*\\.ico|.*\\.webp).*)"],
+}
+```
+
+- [ ] **Step 2: Resolve relative image URLs to absolute in PDF output**
+
+Add `resolveRelativeImages` to `src/lib/pdf.ts`:
+
+```ts
+function resolveRelativeImages(html: string, baseUrl: string): string {
+  return html.replace(/(\bsrc=")\/(?!\/)/g, `$1${baseUrl}/`)
+}
+```
+
+Call it before setting page content:
+```ts
+const processedHtml = baseUrl ? resolveRelativeImages(html, baseUrl) : html
+```
+
+- [ ] **Step 3: Wait for images to load before generating PDF**
+
+After `page.setContent(...)`, add image loading logic:
+
+```ts
+const foundImgs = await page.evaluate(() => document.querySelectorAll("img").length)
+if (foundImgs > 0) {
+  await page.evaluate(() => Promise.all(
+    Array.from(document.querySelectorAll("img"))
+      .filter((img) => !img.complete)
+      .map((img) => new Promise((r) => { img.onload = r; img.onerror = r }))
+  ))
+}
+```
+
+- [ ] **Step 4: Prevent vertical stretching with CSS**
+
+In `EDITOR_STYLES`, use:
+```css
+img { max-width: 100%; height: auto; }
+```
+
+- [ ] **Step 5: Prevent visible Chromium window on Windows**
+
+Use `headless: true` with `--window-position=-9999,-9999` to push the new-headless window offscreen:
+
+```ts
+const commonArgs = [
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-gpu",
+  "--window-position=-9999,-9999",
+]
+browserPromise = puppeteer.launch({
+  executablePath: chromePath,
+  args: commonArgs,
+  headless: true,
+})
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/lib/pdf.ts src/middleware.ts
+git commit -m "feat: add image loading and URL resolution to PDF export"
 ```

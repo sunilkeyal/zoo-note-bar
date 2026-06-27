@@ -171,7 +171,10 @@ export default function MainArea() {
 
   useEffect(() => {
     if (editor && activeNote && activeNote.content !== editor.getHTML()) {
-      editor.commands.setContent(activeNote.content || "<p></p>")
+      const timer = setTimeout(() => {
+        editor.commands.setContent(activeNote.content || "<p></p>")
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [activeNote?._id])
 
