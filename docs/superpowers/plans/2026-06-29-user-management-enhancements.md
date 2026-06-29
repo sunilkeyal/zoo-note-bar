@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace text action buttons in the admin users table with icon+tooltip buttons, consolidate password management into the Edit dialog, and send an email when an admin sets a new password.
+**Goal:** Replace text action buttons in the admin users table with icon+tooltip buttons, consolidate password management into the Edit dialog, send an email when an admin sets a new password, and allow admins to edit their own profile while preventing self-role-downgrade and self-deletion.
 
 **Architecture:** Four source files are modified and two are deleted. No new files are created. The password-change flow moves from a separate auto-generate dialog into an optional field on the existing Edit dialog; the API PUT handler is extended to hash and save the password and fire-and-forget an email.
 
@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - Branch: `feature/user-management-enhancements` — never commit to `main`
+- Branch for admin self-edit: `feature/admin-self-edit` — cut from `main`
 - Run tests with: `npx vitest run` from project root
 - All lucide-react icons imported from `lucide-react`
 - shadcn Tooltip components imported from `@/components/ui/tooltip`
@@ -578,4 +579,227 @@ Expected: all tests pass.
 ```bash
 git add src/app/api/admin/users/[id]/route.ts
 git commit -m "feat: hash and email new password when admin sets it via PUT"
+```
+
+---
+
+### Task 5: Allow admin self-edit with role-change protection
+
+**Files:**
+- Modify: `src/app/api/admin/users/[id]/route.ts`
+- Modify: `src/app/admin/users/users-table.tsx`
+- Modify: `src/app/admin/users/edit-user-dialog.tsx`
+- Modify: `src/app/admin/users/page.tsx`
+- Modify: `src/app/__tests__/admin-users-api.test.ts`
+
+**Interfaces:**
+- Admins can now PUT their own record but cannot change role from admin → user
+- Edit pencil icon is visible for current user in the table; Delete trash icon remains hidden
+- Edit dialog disables the Role dropdown when editing self
+
+- [ ] **Step 0: Create branch**
+
+```bash
+git checkout main
+git checkout -b feature/admin-self-edit
+```
+
+- [ ] **Step 1: Update API — remove blanket self-edit guard, add role-change guard**
+
+In `src/app/api/admin/users/[id]/route.ts`, in the `PUT` handler:
+
+Replace the blanket self-edit block:
+```ts
+const currentUserId = session?.user?.id
+if (currentUserId && currentUserId === id) {
+    return NextResponse.json({ success: false, error: "Cannot modify your own account" }, { status: 400 })
+}
+```
+
+With a role-change guard. Inside the `body.role` validation block (where `body.role` would be applied), add after the existing admin-count check:
+
+```ts
+if (currentUserId && currentUserId === id && user.role === "admin" && body.role === "user") {
+    return NextResponse.json({ success: false, error: "Cannot change your own role from admin to user" }, { status: 400 })
+}
+```
+
+- [ ] **Step 2: Update UI table — show edit for self, keep delete hidden**
+
+In `src/app/admin/users/users-table.tsx`, change the actions cell:
+
+```tsx
+<td className="p-3 text-right">
+  <TooltipProvider>
+    <div className="flex justify-end gap-1">
+      <Tooltip>
+        <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(u)} />}>
+          <Pencil className="h-4 w-4" />
+        </TooltipTrigger>
+        <TooltipContent>Edit user</TooltipContent>
+      </Tooltip>
+      {!isCurrentUser && (
+        <Tooltip>
+          <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(u)} />}>
+            <Trash2 className="h-4 w-4" />
+          </TooltipTrigger>
+          <TooltipContent>Delete user</TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  </TooltipProvider>
+</td>
+```
+
+- [ ] **Step 3: Update Edit dialog — disable role when editing self**
+
+In `src/app/admin/users/edit-user-dialog.tsx`:
+
+Add `currentUserId` to the props:
+```ts
+interface Props {
+  open: boolean
+  user: UserRow | null
+  currentUserId?: string
+  onClose: () => void
+  onUpdated: (user: any) => void
+}
+```
+
+Add a local variable to check if editing self:
+```ts
+const isEditingSelf = user?._id === currentUserId
+```
+
+When `isEditingSelf` is true, force the role to "admin" in the submit body and disable the role dropdown:
+
+In `handleSubmit`, after the role is set:
+```ts
+if (isEditingSelf) {
+  body.role = "admin"
+}
+```
+
+In the JSX, wrap the role select to add a disabled prop and a hint text:
+```tsx
+<div className="grid gap-2">
+  <Label htmlFor="edit-role">Role</Label>
+  <Select value={role} onValueChange={(value) => { if (value !== null) setRole(value) }} disabled={isEditingSelf}>
+    <SelectTrigger id="edit-role" className={isEditingSelf ? "opacity-50 cursor-not-allowed" : ""}>
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="user">User</SelectItem>
+      <SelectItem value="admin">Admin</SelectItem>
+    </SelectContent>
+  </Select>
+  {isEditingSelf && <p className="text-xs text-muted-foreground">Your role cannot be changed.</p>}
+</div>
+```
+
+- [ ] **Step 4: Pass currentUserId from page to dialog**
+
+In `src/app/admin/users/page.tsx`, pass `currentUserId` to `<EditUserDialog>`:
+
+```tsx
+<EditUserDialog
+  open={!!editUser}
+  user={editUser}
+  currentUserId={currentUserId}
+  onClose={() => setEditUser(null)}
+  onUpdated={handleUserUpdated}
+/>
+```
+
+- [ ] **Step 5: Add tests for self-edit and self-delete**
+
+In `src/app/__tests__/admin-users-api.test.ts`, add:
+
+```ts
+describe("self-edit restrictions", () => {
+  it("allows admin to edit own email and displayName", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const mockUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+    const mockFindOne = vi.fn()
+      .mockResolvedValueOnce({
+        _id: { toString: () => "admin1" },
+        email: "admin@example.com",
+        displayName: "Admin",
+        role: "admin",
+      })
+      .mockResolvedValueOnce({
+        _id: { toString: () => "admin1" },
+        email: "admin-new@example.com",
+        displayName: "Admin Updated",
+        role: "admin",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+    mockCollection.mockReturnValue({ findOne: mockFindOne, updateOne: mockUpdateOne })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/admin1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName: "Admin Updated", email: "admin-new@example.com" }),
+    })
+    const res = await PUT(req, { params: { id: "admin1" } })
+    expect(res.status).toBe(200)
+  })
+
+  it("rejects role downgrade from admin to user on self-edit", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const mockFindOne = vi.fn().mockResolvedValue({
+      _id: { toString: () => "admin1" },
+      email: "admin@example.com",
+      displayName: "Admin",
+      role: "admin",
+    })
+    mockCollection.mockReturnValue({ findOne: mockFindOne })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/admin1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "user" }),
+    })
+    const res = await PUT(req, { params: { id: "admin1" } })
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toContain("Cannot change your own role")
+  })
+
+  it("rejects self-deletion", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const { DELETE } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/admin1", { method: "DELETE" })
+    const res = await DELETE(req, { params: { id: "admin1" } })
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.error).toContain("Cannot delete your own account")
+  })
+})
+```
+
+- [ ] **Step 6: Run tests — expect green**
+
+```bash
+npx vitest run
+```
+
+Expected: all tests pass including the three new self-edit tests.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A
+git commit -m "feat: allow admin self-edit, block self role-downgrade and self-deletion"
 ```

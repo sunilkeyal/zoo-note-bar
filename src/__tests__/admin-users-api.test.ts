@@ -490,20 +490,66 @@ describe("PUT /api/admin/users/[id]", () => {
     expect(body.error).toContain("last admin")
   })
 
-  it("prevents modifying your own account", async () => {
+  it("allows admin to edit own email and displayName", async () => {
     const { auth } = await import("@/lib/auth")
-    vi.mocked(auth).mockResolvedValue({ user: { id: "self1", role: "admin" } } as any)
+    vi.mocked(auth).mockResolvedValue({ user: { id: "000000000000000000000001", role: "admin" } } as any)
+
+    const mockUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+    const mockFindOne = vi.fn()
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "admin@example.com",
+        displayName: "Admin",
+        role: "admin",
+      })
+      .mockResolvedValueOnce(null) // no duplicate email
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "admin-new@example.com",
+        displayName: "Admin Updated",
+        role: "admin",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+    mockCollection.mockReturnValue({ findOne: mockFindOne, updateOne: mockUpdateOne })
 
     const { PUT } = await import("@/app/api/admin/users/[id]/route")
-    const req = new Request("http://localhost/api/admin/users/self1", {
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName: "Hacker" }),
+      body: JSON.stringify({ displayName: "Admin Updated", email: "admin-new@example.com" }),
     })
-    const res = await PUT(req, { params: { id: "self1" } })
+    const res = await PUT(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.displayName).toBe("Admin Updated")
+    expect(body.data.email).toBe("admin-new@example.com")
+  })
+
+  it("rejects role downgrade from admin to user on self-edit", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "000000000000000000000001", role: "admin" } } as any)
+
+    const mockFindOne = vi.fn().mockResolvedValue({
+      _id: { toString: () => "000000000000000000000001" },
+      email: "admin@example.com",
+      displayName: "Admin",
+      role: "admin",
+    })
+    mockCollection.mockReturnValue({ findOne: mockFindOne })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "user" }),
+    })
+    const res = await PUT(req, { params: { id: "000000000000000000000001" } })
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain("Cannot modify your own account")
+    expect(body.error).toContain("Cannot change your own role")
   })
 
   it("hashes and saves password when newPassword is provided in the PUT body", async () => {
@@ -673,11 +719,11 @@ describe("DELETE /api/admin/users/[id]", () => {
 
   it("prevents deleting your own account", async () => {
     const { auth } = await import("@/lib/auth")
-    vi.mocked(auth).mockResolvedValue({ user: { id: "self1", role: "admin" } } as any)
+    vi.mocked(auth).mockResolvedValue({ user: { id: "000000000000000000000001", role: "admin" } } as any)
 
     const { DELETE } = await import("@/app/api/admin/users/[id]/route")
-    const req = new Request("http://localhost/api/admin/users/self1", { method: "DELETE" })
-    const res = await DELETE(req, { params: { id: "self1" } })
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", { method: "DELETE" })
+    const res = await DELETE(req, { params: { id: "000000000000000000000001" } })
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toContain("Cannot delete your own account")

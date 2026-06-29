@@ -13,6 +13,9 @@ Improve the admin user management table with better action button visuals, conso
 3. Do not display (or pre-populate) any current password value in the Edit dialog.
 4. When an admin changes a user's password via the Edit dialog, send the new password to the user's email.
 5. Replace the text ghost-buttons (Edit / Reset PW / Delete) with icon buttons: pencil icon for Edit, trash icon for Delete. Each button has a tooltip. Edit highlights blue on hover, Delete highlights red on hover.
+6. Allow an admin user to edit their own profile (email, display name, password) via the Edit dialog.
+7. Forbid an admin user from changing their own role from "admin" to "user" — both in the API and in the UI.
+8. Forbid an admin user from deleting their own account — in both API and UI.
 
 ## Architecture
 
@@ -61,6 +64,24 @@ No new files are added. Two files are deleted. Four files are modified.
   - After the DB update, call `sendPasswordResetByAdminEmail(email, password)` using the `email` value from the request body (fire-and-forget with `.catch` logging, same pattern as the existing reset-password route). Using the body's email is correct: if the admin changed the email in the same request, the new email is the one the user will log in with going forward.
 - If `password` is absent or empty, skip password handling entirely.
 
+#### `src/app/api/admin/users/[id]/route.ts` (PUT handler — self-edit changes)
+
+- Remove the blanket "Cannot modify your own account" guard (line 68–70).
+- In the `body.role` validation block: if `currentUserId === id` and the existing user role is `"admin"` and `body.role` is `"user"`, return a 400 error: `"Cannot change your own role from admin to user"`.
+- Keep the existing self-delete guard in the `DELETE` handler (it already returns "Cannot delete your own account").
+
+#### `src/app/admin/users/users-table.tsx`
+
+- Show the Edit (pencil) icon button even for the current user. Only the Delete (trash) icon button remains hidden behind `!isCurrentUser`.
+
+#### `src/app/admin/users/edit-user-dialog.tsx`
+
+- Accept a new optional prop `currentUserId?: string`.
+- When `user._id === currentUserId`:
+  - Disable the Role `<Select>` component.
+  - Hardcode the value to `"admin"` in the submit body (belt-and-suspenders with the API guard).
+  - Show a small hint: `"Your role cannot be changed."`
+
 ## Data Flow
 
 ```
@@ -83,15 +104,20 @@ Email arrives in user's inbox with new password
 
 - The plain-text password is only held in memory during the request and passed to the email function before the request ends. It is never stored or logged.
 - `bcrypt` cost factor 12 matches existing usage in the codebase.
-- The admin cannot set a password for their own account through this flow (the existing self-edit guard remains in place).
 - Input is validated at the API boundary: password must be a string; no minimum length is enforced by this spec (existing create-user flow sets no minimum either).
+- Admins can now edit their own profile, but the API explicitly rejects any attempt to change role from "admin" to "user" when editing self.
+- The Edit dialog disables the Role dropdown when editing your own account, preventing accidental role change at the UI level.
+- Self-deletion is always rejected by the API, and the Delete button is hidden in the table for the current user.
 
 ## Testing
 
 - Update `src/__tests__/admin-users-api.test.ts`: add a test case for PUT with a `password` field — verify the response is successful and `sendPasswordResetByAdminEmail` is called.
 - Update `src/__tests__/edit-user-dialog.test.tsx` (if it covers form submission): verify the password field is present and that a blank value does not include `password` in the submitted body.
+- Add test case for PUT self-edit: verify that an admin can edit their own email/displayName but receives a 400 error when attempting to change role from admin to user.
+- Add test case for DELETE self: verify that deleting your own account returns a 400 error.
 - No new test files needed.
 
-## Feature Branch
+## Feature Branches
 
-All work is done on a new branch cut from `main`: `feature/user-management-enhancements`.
+- `feature/user-management-enhancements` — main feature branch (already merged into `main`).
+- `feature/admin-self-edit` — cut from `main` for the admin self-edit enhancement.

@@ -146,24 +146,24 @@ export default function UsersTable({
                     {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
                   </td>
                   <td className="p-3 text-right">
-                    {!isCurrentUser && (
-                      <TooltipProvider>
-                        <div className="flex justify-end gap-1">
-                          <Tooltip>
-                            <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(u)} />}>
-                              <Pencil className="h-4 w-4" />
-                            </TooltipTrigger>
-                            <TooltipContent>Edit user</TooltipContent>
-                          </Tooltip>
+                    <TooltipProvider>
+                      <div className="flex justify-end gap-1">
+                        <Tooltip>
+                          <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(u)} />}>
+                            <Pencil className="h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent>Edit user</TooltipContent>
+                        </Tooltip>
+                        {!isCurrentUser && (
                           <Tooltip>
                             <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(u)} />}>
                               <Trash2 className="h-4 w-4" />
                             </TooltipTrigger>
                             <TooltipContent>Delete user</TooltipContent>
                           </Tooltip>
-                        </div>
-                      </TooltipProvider>
-                    )}
+                        )}
+                      </div>
+                    </TooltipProvider>
                   </td>
                 </tr>
                 )

@@ -65,9 +65,6 @@ export async function PUT(
   console.log("[PUT /api/admin/users/:id] ID", id)
 
   const currentUserId = session?.user?.id
-  if (currentUserId && currentUserId === id) {
-    return NextResponse.json({ success: false, error: "Cannot modify your own account" }, { status: 400 })
-  }
 
   let objectId: ObjectId
   try {
@@ -112,6 +109,9 @@ export async function PUT(
   if (body.role !== undefined) {
     if (!["admin", "user"].includes(body.role)) {
       return NextResponse.json({ success: false, error: "Invalid role" }, { status: 400 })
+    }
+    if (currentUserId && currentUserId === id && user.role === "admin" && body.role === "user") {
+      return NextResponse.json({ success: false, error: "Cannot change your own role from admin to user" }, { status: 400 })
     }
     if (body.role !== user.role) {
       if (user.role === "admin" && body.role !== "admin") {

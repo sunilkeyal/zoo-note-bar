@@ -135,6 +135,7 @@ export default function UsersPage() {
       <EditUserDialog
         open={!!editUser}
         user={editUser}
+        currentUserId={currentUserId}
         onClose={() => setEditUser(null)}
         onUpdated={handleUserUpdated}
       />

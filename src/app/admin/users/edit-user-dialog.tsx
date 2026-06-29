@@ -25,11 +25,13 @@ import type { UserRow } from "./users-table"
 interface Props {
   open: boolean
   user: UserRow | null
+  currentUserId?: string
   onClose: () => void
   onUpdated: (user: any) => void
 }
 
-export default function EditUserDialog({ open, user, onClose, onUpdated }: Props) {
+export default function EditUserDialog({ open, user, currentUserId, onClose, onUpdated }: Props) {
+  const isEditingSelf = user?._id === currentUserId
   const [email, setEmail] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [role, setRole] = useState("user")
@@ -55,7 +57,7 @@ export default function EditUserDialog({ open, user, onClose, onUpdated }: Props
     setLoading(true)
     setError("")
 
-    const body: Record<string, string> = { email, displayName, role }
+    const body: Record<string, string> = { email, displayName, role: isEditingSelf ? "admin" : role }
     if (newPassword.trim()) {
       body.password = newPassword.trim()
     }
@@ -112,8 +114,8 @@ export default function EditUserDialog({ open, user, onClose, onUpdated }: Props
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={role} onValueChange={(value) => { if (value !== null) setRole(value) }}>
-                <SelectTrigger id="edit-role">
+              <Select value={role} onValueChange={(value) => { if (value !== null) setRole(value) }} disabled={isEditingSelf}>
+                <SelectTrigger id="edit-role" className={isEditingSelf ? "opacity-50 cursor-not-allowed" : ""}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -121,6 +123,7 @@ export default function EditUserDialog({ open, user, onClose, onUpdated }: Props
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+              {isEditingSelf && <p className="text-xs text-muted-foreground">Your role cannot be changed.</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-password">New Password</Label>
