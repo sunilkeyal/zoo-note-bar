@@ -39,6 +39,25 @@ const EDITOR_STYLES = `
     overflow-x: auto;
   }
   img { max-width: 100%; height: auto; }
+  ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+  li[data-type="taskItem"] { display: flex; align-items: flex-start; gap: 0.5rem; margin: 4px 0; }
+  li[data-type="taskItem"] > label { flex-shrink: 0; margin-top: 1px; }
+  li[data-type="taskItem"] > .task-content { flex: 1; min-width: 0; }
+  li[data-type="taskItem"] .task-checkbox {
+    display: grid; place-content: center;
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    border: 1px solid #1a1a2e;
+    background: transparent;
+  }
+  li[data-type="taskItem"] .task-checkbox[data-checked="true"] {
+    background: #1a1a2e;
+    color: #ffffff;
+    border-color: #1a1a2e;
+  }
+  li[data-type="taskItem"] .task-content p { margin: 0; }
+  li[data-type="taskItem"] .task-checkbox svg { display: none; }
+  li[data-type="taskItem"] .task-checkbox[data-checked="true"] svg { display: block; }
 `
 
 let browserPromise: Promise<Browser> | null = null
