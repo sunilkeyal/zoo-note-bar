@@ -507,43 +507,6 @@ describe("PUT /api/admin/users/[id]", () => {
   })
 })
 
-describe("POST /api/admin/users/[id]/reset-password", () => {
-  it("resets password and returns temporary password", async () => {
-    const { auth } = await import("@/lib/auth")
-    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
-
-    mockCollection.mockReturnValue({
-      findOne: vi.fn().mockResolvedValue({
-        _id: { toString: () => "000000000000000000000001" },
-        email: "u@u.com",
-      }),
-      updateOne: vi.fn().mockResolvedValue({ modifiedCount: 1 }),
-    })
-
-    const { POST } = await import("@/app/api/admin/users/[id]/reset-password/route")
-    const req = new Request("http://localhost/api/admin/users/000000000000000000000001/reset-password", { method: "POST" })
-    const res = await POST(req, { params: { id: "000000000000000000000001" } })
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.success).toBe(true)
-    expect(body.temporaryPassword).toBe("GenPass123!")
-  })
-
-  it("returns 404 if user not found", async () => {
-    const { auth } = await import("@/lib/auth")
-    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
-
-    mockCollection.mockReturnValue({
-      findOne: vi.fn().mockResolvedValue(null),
-    })
-
-    const { POST } = await import("@/app/api/admin/users/[id]/reset-password/route")
-    const req = new Request("http://localhost/api/admin/users/000000000000000000000999/reset-password", { method: "POST" })
-    const res = await POST(req, { params: { id: "000000000000000000000999" } })
-    expect(res.status).toBe(404)
-  })
-})
-
 describe("DELETE /api/admin/users/[id]", () => {
   it("deletes user and their data", async () => {
     const { auth } = await import("@/lib/auth")

@@ -40,7 +40,6 @@ interface Props {
   onLimitChange: (limit: number) => void
   onToggleActive: (user: UserRow) => void
   onEdit: (user: UserRow) => void
-  onResetPassword: (user: UserRow) => void
   onDelete: (user: UserRow) => void
 }
 
@@ -49,7 +48,7 @@ export default function UsersTable({
   search, roleFilter, statusFilter,
   onSearchChange, onRoleFilterChange, onStatusFilterChange,
   onPageChange, onLimitChange,
-  onToggleActive, onEdit, onResetPassword, onDelete,
+  onToggleActive, onEdit, onDelete,
 }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
@@ -144,9 +143,6 @@ export default function UsersTable({
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => onEdit(u)}>
                         Edit
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => onResetPassword(u)}>
-                        Reset PW
                       </Button>
                       <Button variant="ghost" size="sm" className="text-red-600" onClick={() => onDelete(u)}>
                         Delete

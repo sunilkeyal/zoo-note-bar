@@ -8,7 +8,6 @@ import UsersTable, { type UserRow } from "./users-table"
 import CreateUserDialog from "./create-user-dialog"
 import EditUserDialog from "./edit-user-dialog"
 import DeleteUserDialog from "./delete-user-dialog"
-import ResetPasswordDialog from "./reset-password-dialog"
 
 export default function UsersPage() {
   const { data: session } = useSession()
@@ -25,7 +24,6 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editUser, setEditUser] = useState<UserRow | null>(null)
   const [deleteUser, setDeleteUser] = useState<UserRow | null>(null)
-  const [resetPwUser, setResetPwUser] = useState<UserRow | null>(null)
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -125,7 +123,6 @@ export default function UsersPage() {
         onLimitChange={(v) => { setLimit(v); setPage(1) }}
         onToggleActive={handleToggleActive}
         onEdit={setEditUser}
-        onResetPassword={setResetPwUser}
         onDelete={setDeleteUser}
       />
 
@@ -147,12 +144,6 @@ export default function UsersPage() {
         user={deleteUser}
         onClose={() => setDeleteUser(null)}
         onDeleted={handleUserDeleted}
-      />
-
-      <ResetPasswordDialog
-        open={!!resetPwUser}
-        user={resetPwUser}
-        onClose={() => setResetPwUser(null)}
       />
     </div>
   )
