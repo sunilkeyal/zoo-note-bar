@@ -148,20 +148,22 @@ export default function UsersTable({
                   <td className="p-3 text-right">
                     <TooltipProvider>
                       <div className="flex justify-end gap-1">
-                      {!isCurrentUser && (
                         <Tooltip>
-                          <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(u)} />}>
-                            <Trash2 className="h-4 w-4" />
+                          <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(u)} />}>
+                            <Pencil className="h-4 w-4" />
                           </TooltipTrigger>
-                          <TooltipContent>Delete user</TooltipContent>
+                          <TooltipContent>Edit user</TooltipContent>
                         </Tooltip>
-                      )}
-                      <Tooltip>
-                        <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(u)} />}>
-                          <Pencil className="h-4 w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>Edit user</TooltipContent>
-                      </Tooltip>
+                        {isCurrentUser ? (
+                          <div className="h-8 w-8" />
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(u)} />}>
+                              <Trash2 className="h-4 w-4" />
+                            </TooltipTrigger>
+                            <TooltipContent>Delete user</TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                     </TooltipProvider>
                   </td>
