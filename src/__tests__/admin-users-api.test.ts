@@ -505,6 +505,127 @@ describe("PUT /api/admin/users/[id]", () => {
     const body = await res.json()
     expect(body.error).toContain("Cannot modify your own account")
   })
+
+  it("hashes and saves password when newPassword is provided in the PUT body", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const bcrypt = await import("bcryptjs")
+    const mockHash = vi.mocked(bcrypt.default.hash)
+    mockHash.mockResolvedValue("hashed_new_pw" as never)
+
+    const mockUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+    const mockFindOne = vi.fn()
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+      })
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+    mockCollection.mockReturnValue({ findOne: mockFindOne, updateOne: mockUpdateOne })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "NewPass123!" }),
+    })
+    const res = await PUT(req, { params: { id: "000000000000000000000001" } })
+    expect(res.status).toBe(200)
+
+    const updateCall = mockUpdateOne.mock.calls[0]
+    expect(updateCall[1].$set.passwordHash).toBe("hashed_new_pw")
+    expect(mockHash).toHaveBeenCalledWith("NewPass123!", 12)
+  })
+
+  it("sends password reset email when password is changed via PUT", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const mockUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+    const mockFindOne = vi.fn()
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+      })
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+    mockCollection.mockReturnValue({ findOne: mockFindOne, updateOne: mockUpdateOne })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "NewPass123!" }),
+    })
+    await PUT(req, { params: { id: "000000000000000000000001" } })
+
+    // Give fire-and-forget a tick to run
+    await new Promise((r) => setTimeout(r, 0))
+
+    const { sendPasswordResetByAdminEmail } = await import("@/lib/email")
+    expect(vi.mocked(sendPasswordResetByAdminEmail)).toHaveBeenCalledWith("u@u.com", "NewPass123!")
+  })
+
+  it("does not update password or send email when password field is blank", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin1", role: "admin" } } as any)
+
+    const mockUpdateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 })
+    const mockFindOne = vi.fn()
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+      })
+      .mockResolvedValueOnce({
+        _id: { toString: () => "000000000000000000000001" },
+        email: "u@u.com",
+        displayName: "User",
+        role: "user",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+    mockCollection.mockReturnValue({ findOne: mockFindOne, updateOne: mockUpdateOne })
+
+    const { PUT } = await import("@/app/api/admin/users/[id]/route")
+    const req = new Request("http://localhost/api/admin/users/000000000000000000000001", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName: "New Name", password: "" }),
+    })
+    await PUT(req, { params: { id: "000000000000000000000001" } })
+
+    const updateCall = mockUpdateOne.mock.calls[0]
+    expect(updateCall[1].$set.passwordHash).toBeUndefined()
+
+    await new Promise((r) => setTimeout(r, 0))
+    const { sendPasswordResetByAdminEmail } = await import("@/lib/email")
+    expect(vi.mocked(sendPasswordResetByAdminEmail)).not.toHaveBeenCalled()
+  })
 })
 
 describe("DELETE /api/admin/users/[id]", () => {
