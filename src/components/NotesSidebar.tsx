@@ -168,13 +168,14 @@ const SortableNoteItem = ({ noteId, children }: { noteId: string; children: Reac
     opacity: isDragging ? 0.4 : 1,
     position: "relative" as const,
   }
-  const child = React.Children.only(children) as React.ReactElement
+  
+  const child = React.Children.only(children) as React.ReactElement<{ style?: React.CSSProperties }>
   return React.cloneElement(child, {
     ref: setNodeRef,
     style: { ...child.props.style, ...style },
     ...attributes,
     ...listeners,
-  })
+  } as any)
 }
 
 const SortableFolderItem = ({ folderId, dragType, children }: { folderId: string; dragType: string | null; children: React.ReactNode }) => {
