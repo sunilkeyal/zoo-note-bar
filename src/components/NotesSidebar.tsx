@@ -1,6 +1,22 @@
 "use client"
 
-import React, { useState, DragEvent } from "react"
+import React, { useState } from "react"
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { useNotes } from "@/contexts/NoteContext"
 import DeleteConfirmDialog from "./DeleteConfirmDialog"
 import DeleteFolderDialog from "./DeleteFolderDialog"
@@ -160,7 +176,7 @@ export default function NotesSidebar() {
   const {
     notes, folders, expandedFolders, createNote, deleteNote, updateNote,
     activeNoteId, setActiveNoteId, createFolder, renameFolder,
-    deleteFolder, moveNote, toggleFolder,
+    deleteFolder, moveNote, moveFolder, toggleFolder,
   } = useNotes()
 
   const [search, setSearch] = useState("")
@@ -176,11 +192,7 @@ export default function NotesSidebar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  const [dragActive, setDragActive] = useState(false)
-  const [dropTarget, setDropTarget] = useState<{
-    folderId: string | null
-    noteIndex: number
-  } | null>(null)
+
 
   const filtered = search
     ? notes.filter((n) => n.title.toLowerCase().includes(search.toLowerCase()))
@@ -210,6 +222,15 @@ export default function NotesSidebar() {
       if (targetFolderId && !expandedFolders.has(targetFolderId)) {
         toggleFolder(targetFolderId)
       }
+      setActiveNoteId(note._id)
+    }
+  }
+
+  const handleCreateRootNote = async () => {
+    const rootNotes = filtered.filter((n) => !n.folderId).sort((a, b) => a.position - b.position)
+    const position = rootNotes.length > 0 ? rootNotes[rootNotes.length - 1].position + 1000 : 0
+    const note = await createNote({ title: "Untitled Note", position })
+    if (note) {
       setActiveNoteId(note._id)
     }
   }
@@ -287,46 +308,133 @@ export default function NotesSidebar() {
 
   const cancelRename = () => { setRenamingId(null); setRenameValue("") }
 
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [activeDragType, setActiveDragType] = useState<"note" | "folder" | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    })
+  )
+
+  const computeInsertPosition = (items: { position: number }[], targetIndex: number): number => {
+    const before = items[targetIndex - 1]?.position ?? null
+    const after = items[targetIndex]?.position ?? null
+    if (before === null && after === null) return 1000
+    if (before === null) return after! / 2
+    if (after === null) return before + 1000
+    return (before + after) / 2
+  }
+
+  const handleDragStartFn = (event: DragStartEvent) => {
+    const id = event.active.id as string
+    setActiveDragId(id)
+    setActiveDragType(folders.some((f) => f._id === id) ? "folder" : "note")
+  }
+
+  const handleDragEndFn = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveDragId(null)
+    setActiveDragType(null)
+
+    if (!over || active.id === over.id) return
+
+    const activeId = active.id as string
+    const overId = over.id as string
+
+    // Folder reorder
+    if (folders.some((f) => f._id === activeId)) {
+      const sorted = [...folders].sort((a, b) => a.position - b.position)
+      const oldIdx = sorted.findIndex((f) => f._id === activeId)
+      const newIdx = sorted.findIndex((f) => f._id === overId)
+      if (oldIdx === -1 || newIdx === -1) return
+
+      const target = sorted[newIdx]
+      let pos: number
+      if (oldIdx < newIdx) {
+        const next = sorted[newIdx + 1]
+        pos = next ? (target.position + next.position) / 2 : target.position + 1000
+      } else {
+        const prev = sorted[newIdx - 1]
+        pos = prev ? (prev.position + target.position) / 2 : target.position / 2
+      }
+      await moveFolder(activeId, pos)
+      return
+    }
+
+    // Note move
+    const noteToMove = notes.find((n) => n._id === activeId)
+    if (!noteToMove) return
+
+    // Dropped on a folder
+    if (folders.some((f) => f._id === overId)) {
+      const folderNotes = notes
+        .filter((n) => n.folderId === overId)
+        .sort((a, b) => a.position - b.position)
+      const pos = folderNotes.length > 0 ? folderNotes[folderNotes.length - 1].position + 1000 : 0
+      await moveNote(activeId, overId, pos)
+      return
+    }
+
+    // Dropped on a note
+    const overNote = notes.find((n) => n._id === overId)
+    if (!overNote) return
+
+    const targetFolderId = overNote.folderId ?? null
+    const containerNotes = notes
+      .filter((n) => targetFolderId === null ? !n.folderId : n.folderId === targetFolderId)
+      .sort((a, b) => a.position - b.position)
+
+    const overIdx = containerNotes.findIndex((n) => n._id === overId)
+    if (overIdx === -1) return
+
+    const pos = computeInsertPosition(containerNotes, overIdx)
+    await moveNote(activeId, targetFolderId, pos)
+  }
+
   const handleRenameFromContextMenu = (id: string, name: string) => {
     setTimeout(() => startRenaming(id, name), 0)
   }
 
-  const handleDragStart = (e: DragEvent, noteId: string) => {
-    e.dataTransfer.setData("text/plain", noteId)
-    e.dataTransfer.effectAllowed = "move"
-    setDragActive(true)
+
+
+  const SortableNoteItem = ({ note, noteIndex, parentFolderId, dragType }: { note: Note; noteIndex: number; parentFolderId: string | null; dragType: string | null }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({ id: note._id })
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+      position: "relative" as const,
+    }
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+        className={isOver && dragType === "note" ? "border-t-2 border-blue-500" : ""}
+      >
+        {renderNoteItem(note, noteIndex, parentFolderId)}
+      </div>
+    )
   }
 
-  const handleDragOver = (e: DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move" }
-
-  const handleDrop = async (e: DragEvent, targetFolderId: string | null) => {
-    e.preventDefault()
-    const noteId = e.dataTransfer.getData("text/plain")
-    if (noteId && dropTarget && dropTarget.folderId === targetFolderId) {
-      const targetNotes = notes
-        .filter((n) => targetFolderId === null ? !n.folderId : n.folderId === targetFolderId)
-        .sort((a, b) => a.position - b.position)
-      const { noteIndex } = dropTarget
-      let position: number
-      if (targetNotes.length === 0) { position = 0 }
-      else if (noteIndex <= 0) { position = targetNotes[0].position - 1000 }
-      else if (noteIndex >= targetNotes.length) { position = targetNotes[targetNotes.length - 1].position + 1000 }
-      else { position = (targetNotes[noteIndex - 1].position + targetNotes[noteIndex].position) / 2 }
-      await moveNote(noteId, targetFolderId, position)
-    } else if (noteId) { await moveNote(noteId, targetFolderId) }
-    setDropTarget(null); setDragActive(false)
+  const SortableFolderItem = ({ folder, children, dragType }: { folder: Folder; children: React.ReactNode; dragType: string | null }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({ id: folder._id })
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+    }
+    const indicatorClass = isOver
+      ? dragType === "folder"
+        ? "border-t-2 border-blue-500"
+        : "ring-2 ring-blue-500 rounded-md"
+      : ""
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+        className={indicatorClass}
+      >
+        {children}
+      </div>
+    )
   }
-
-  const handleNoteDragOver = (e: DragEvent, noteIndex: number, parentFolderId: string | null) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const relativeY = e.clientY - rect.top
-    const index = relativeY < rect.height / 2 ? noteIndex : noteIndex + 1
-    setDropTarget({ folderId: parentFolderId, noteIndex: index })
-  }
-
-  const handleDragEnd = () => { setDropTarget(null); setDragActive(false) }
 
   const renderNoteItem = (note: Note, noteIndex: number, parentFolderId: string | null) => (
     <SidebarMenuSubItem key={note._id}>
@@ -347,10 +455,6 @@ export default function NotesSidebar() {
               isActive={activeNoteId === note._id}
               onClick={() => { setActiveNoteId(note._id); setActiveFolderId(null); if (pathname !== "/") router.push("/") }}
               onDoubleClick={() => startRenaming(note._id, note.title)}
-              draggable
-              onDragStart={(e) => handleDragStart(e, note._id)}
-              onDragEnd={handleDragEnd}
-              onDragOver={(e) => handleNoteDragOver(e, noteIndex, parentFolderId)}
             >
               <span className="truncate">{note.title}</span>
             </SidebarMenuSubButton>
@@ -388,67 +492,72 @@ export default function NotesSidebar() {
     const FolderIconForFolder = getFolderIcon(folder.name)
 
     return (
-      <Collapsible
-        key={folder._id}
-        open={isExpanded}
-        onOpenChange={() => { toggleFolder(folder._id); setActiveFolderId(folder._id) }}
-      >
-        <SidebarGroup className="py-0">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <ContextMenu>
-                  <ContextMenuTrigger render={
-                    <CollapsibleTrigger render={<SidebarMenuButton isActive={activeFolderId === folder._id} />}>
-                      <FolderIconForFolder />
-                      {renamingId === folder._id ? (
-                        <Input
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onBlur={() => finishRename(folder._id)}
-                          onKeyDown={(e) => { if (e.key === "Enter") finishRename(folder._id); if (e.key === "Escape") cancelRename() }}
-                          autoFocus
-                          className="h-6 text-xs px-1"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className="flex-1 truncate text-left">{folder.name}</span>
-                      )}
-                    </CollapsibleTrigger>
-                  } />
-                  <ContextMenuContent>
-                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleCreateInFolder(folder._id) }}>
-                      <Plus /> Create new note
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleRenameFromContextMenu(folder._id, folder.name) }}>
-                      <Pencil /> Rename
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onClick={(e) => { e.stopPropagation(); setDeleteFolderTarget(folder) }}>
-                      <Trash2 /> Move to trash
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-                {!renamingId && (
-                  <SidebarMenuAction showOnHover={false} onClick={() => { toggleFolder(folder._id); setActiveFolderId(folder._id) }}>
-                    {isExpanded ? <ChevronDown /> : <ChevronRight />}
-                  </SidebarMenuAction>
-                )}
-              </SidebarMenuItem>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  {folderNotes.length === 0 && (
-                    <SidebarMenuSubItem>
-                      <span className="block px-2 py-1 text-xs text-sidebar-foreground/50">No notes</span>
-                    </SidebarMenuSubItem>
+      <SortableFolderItem key={folder._id} folder={folder} dragType={activeDragType}>
+        <Collapsible
+          open={isExpanded}
+          onOpenChange={() => { toggleFolder(folder._id); setActiveFolderId(folder._id) }}
+        >
+          <SidebarGroup className="py-0">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <ContextMenu>
+                    <ContextMenuTrigger render={
+                      <CollapsibleTrigger render={<SidebarMenuButton isActive={activeFolderId === folder._id} />}>
+                        <FolderIconForFolder />
+                        {renamingId === folder._id ? (
+                          <Input
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={() => finishRename(folder._id)}
+                            onKeyDown={(e) => { if (e.key === "Enter") finishRename(folder._id); if (e.key === "Escape") cancelRename() }}
+                            autoFocus
+                            className="h-6 text-xs px-1"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span className="flex-1 truncate text-left">{folder.name}</span>
+                        )}
+                      </CollapsibleTrigger>
+                    } />
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleCreateInFolder(folder._id) }}>
+                        <Plus /> Create new note
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={(e) => { e.stopPropagation(); handleRenameFromContextMenu(folder._id, folder.name) }}>
+                        <Pencil /> Rename
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={(e) => { e.stopPropagation(); setDeleteFolderTarget(folder) }}>
+                        <Trash2 /> Move to trash
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                  {!renamingId && (
+                    <SidebarMenuAction showOnHover={false} onClick={() => { toggleFolder(folder._id); setActiveFolderId(folder._id) }}>
+                      {isExpanded ? <ChevronDown /> : <ChevronRight />}
+                    </SidebarMenuAction>
                   )}
-                  {folderNotes.map((note, noteIndex) => renderNoteItem(note, noteIndex, folder._id))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </Collapsible>
+                </SidebarMenuItem>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {folderNotes.length === 0 && (
+                      <SidebarMenuSubItem>
+                        <span className="block px-2 py-1 text-xs text-sidebar-foreground/50">No notes</span>
+                      </SidebarMenuSubItem>
+                    )}
+                    <SortableContext items={folderNotes.map(n => n._id)} strategy={verticalListSortingStrategy}>
+                      {folderNotes.map((note, noteIndex) => (
+                        <SortableNoteItem key={note._id} note={note} noteIndex={noteIndex} parentFolderId={folder._id} dragType={activeDragType} />
+                      ))}
+                    </SortableContext>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </Collapsible>
+      </SortableFolderItem>
     )
   }
 
@@ -481,6 +590,12 @@ export default function NotesSidebar() {
               <TooltipContent>New folder</TooltipContent>
             </Tooltip>
             <Tooltip>
+              <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={handleCreateRootNote} />}>
+                <StickyNote />
+              </TooltipTrigger>
+              <TooltipContent>New note</TooltipContent>
+            </Tooltip>
+            <Tooltip>
               <TooltipTrigger render={<Button variant="ghost" size="icon" onClick={() => setSearchOpen(!searchOpen)} className={searchOpen ? "text-sidebar-accent-foreground" : ""} />}>
                 <Search />
               </TooltipTrigger>
@@ -503,10 +618,61 @@ export default function NotesSidebar() {
         </SidebarHeader>
 
         <SidebarContent>
-          <div className="px-3 py-1 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-            Notes
-          </div>
-          {folders.map(renderFolder)}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStartFn}
+            onDragEnd={handleDragEndFn}
+          >
+            {/* Folders section */}
+            <div className="px-3 py-1 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
+              Folders
+            </div>
+            <SortableContext items={folders.map(f => f._id)} strategy={verticalListSortingStrategy}>
+              {folders.map(renderFolder)}
+            </SortableContext>
+
+            {/* Root-level notes section */}
+            {filtered.filter(n => !n.folderId).length > 0 && (
+              <>
+                <SidebarSeparator className="my-2" />
+                <div className="px-3 py-1 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
+                  Notes
+                </div>
+                <SidebarGroup className="py-0">
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuSub>
+                        <SortableContext
+                          items={filtered.filter(n => !n.folderId).map(n => n._id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {filtered.filter(n => !n.folderId).map((note, noteIndex) => (
+                            <SortableNoteItem key={note._id} note={note} noteIndex={noteIndex} parentFolderId={null} dragType={activeDragType} />
+                          ))}
+                        </SortableContext>
+                      </SidebarMenuSub>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </>
+            )}
+
+            {/* DragOverlay */}
+            <DragOverlay>
+              {activeDragId && activeDragType === "folder" ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-sidebar-accent/80 rounded-md shadow-md backdrop-blur-sm">
+                  <FolderIcon className="size-4" />
+                  <span className="truncate">{folders.find(f => f._id === activeDragId)?.name}</span>
+                </div>
+              ) : activeDragId && activeDragType === "note" ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-sidebar-accent/80 rounded-md shadow-md backdrop-blur-sm">
+                  <StickyNote className="size-4" />
+                  <span className="truncate">{notes.find(n => n._id === activeDragId)?.title}</span>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
 
           {/* Workspace section — visible to all authenticated users */}
           <SidebarSeparator className="my-2" />
