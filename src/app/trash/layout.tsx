@@ -7,7 +7,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import AppHeader from "@/components/AppHeader"
 import NotesSidebar from "@/components/NotesSidebar"
 
-export default function WorkspaceLayout({
+export default function TrashLayout({
   children,
 }: {
   children: React.ReactNode

@@ -51,15 +51,15 @@ describe('authConfig', () => {
       expect(result).toBe(true)
     })
 
-    it('returns !!auth for /workspace paths', async () => {
+    it('returns !!auth for /trash paths', async () => {
       const authed = await authConfig.callbacks.authorized({
-        request: { nextUrl: { pathname: '/workspace/123' } },
+        request: { nextUrl: { pathname: '/trash' } },
         auth: { user: { name: 'Test' } },
       } as any)
       expect(authed).toBe(true)
 
       const unauthed = await authConfig.callbacks.authorized({
-        request: { nextUrl: { pathname: '/workspace/123' } },
+        request: { nextUrl: { pathname: '/trash' } },
         auth: null,
       } as any)
       expect(unauthed).toBe(false)

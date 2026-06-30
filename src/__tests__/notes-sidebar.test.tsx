@@ -241,10 +241,9 @@ describe('NotesSidebar', () => {
     expect(screen.getByText('Notes')).toBeInTheDocument()
   })
 
-  it('renders Workspace section with Trash link', () => {
+  it('renders Trash link in footer', () => {
     vi.mocked(useNotes).mockReturnValue(createMockContext())
     renderSidebar()
-    expect(screen.getByText('Workspace')).toBeInTheDocument()
     expect(screen.getByText('Trash')).toBeInTheDocument()
   })
 

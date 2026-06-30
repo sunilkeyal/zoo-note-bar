@@ -14,7 +14,7 @@ export const authConfig = {
       if (pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname.startsWith("/api/auth")) {
         return true
       }
-      if (pathname.startsWith("/workspace")) {
+      if (pathname.startsWith("/trash")) {
         return !!auth
       }
       if (pathname.startsWith("/admin")) {

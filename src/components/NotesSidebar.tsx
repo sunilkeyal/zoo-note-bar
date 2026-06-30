@@ -247,10 +247,6 @@ const SortableFolderItem = ({ folderId, dragType, children }: { folderId: string
   )
 }
 
-const workspaceItems = [
-  { route: "/workspace/trash",          label: "Trash",            icon: Trash2 },
-]
-
 const adminItems = [
   { route: "/admin",           label: "Dashboard",        icon: LayoutDashboard },
   { route: "/admin/analytics", label: "Analytics",        icon: BarChart3 },
@@ -754,26 +750,6 @@ export default function NotesSidebar() {
             </DragOverlay>
           </DndContext>
 
-          {/* Workspace section — visible to all authenticated users */}
-          <SidebarSeparator className="my-2" />
-          <div className="px-3 py-1 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-            Workspace
-          </div>
-          <SidebarGroup className="py-0">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {workspaceItems.map((item) => (
-                  <SidebarMenuItem key={item.route}>
-                    <SidebarMenuButton render={<Link href={item.route} />} isActive={pathname.startsWith(item.route)}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
           {/* Admin section — admin users only */}
           {session?.user?.role === "admin" && (
             <>
@@ -799,6 +775,17 @@ export default function NotesSidebar() {
           )}
         </SidebarContent>
         <SidebarFooter>
+          {/* Trash — pinned above user footer */}
+          <SidebarSeparator />
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton render={<Link href="/trash" />} isActive={pathname.startsWith("/trash")}>
+                <Trash2 />
+                <span>Trash</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <SidebarSeparator />
           <SidebarMenu>
             <SidebarMenuItem>
               <DropdownMenu>
