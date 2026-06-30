@@ -108,8 +108,8 @@ describe('MainArea', () => {
 
     expect(screen.getByDisplayValue('My Note')).toBeInTheDocument()
     expect(screen.getByText(/Last updated/)).toBeInTheDocument()
-    expect(screen.getByTestId('icon-Bold')).toBeInTheDocument()
-    expect(screen.getByTestId('icon-Italic')).toBeInTheDocument()
+    expect(screen.getAllByTestId('icon-Bold').length).toBeGreaterThan(0)
+    expect(screen.getAllByTestId('icon-Italic').length).toBeGreaterThan(0)
   })
 
   it('calls updateNote when title is changed after debounce', () => {

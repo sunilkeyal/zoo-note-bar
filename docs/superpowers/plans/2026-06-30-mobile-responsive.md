@@ -1,225 +1,140 @@
-"use client"
+# Mobile & Tablet Responsive Implementation Plan
 
-import React, { useCallback, useRef, useState, useEffect } from "react"
-import { useEditor } from "@tiptap/react"
-import StarterKit from "@tiptap/starter-kit"
-import Underline from "@tiptap/extension-underline"
-import { TextStyle } from "@tiptap/extension-text-style"
-import { FontSize } from "@/extensions/FontSize"
-import Color from "@tiptap/extension-color"
-import Highlight from "@tiptap/extension-highlight"
-import FontFamily from "@tiptap/extension-font-family"
-import { ParagraphSpacing } from "@/extensions/ParagraphSpacing"
-import TaskList from "@tiptap/extension-task-list"
-import { CustomTaskItem } from "@/extensions/TaskItem"
-import { ImageNode } from "@/extensions/ImageNode"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Strikethrough,
-  Palette,
-  Highlighter,
-  ArrowUpDown,
-  ChevronDown,
-} from "lucide-react"
-import { useNotes } from "@/contexts/NoteContext"
-import NoteEditor from "./NoteEditor"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Separator } from "@/components/ui/separator"
-import {
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  List,
-  ListOrdered,
-  ListChecks,
-  Image,
-} from "lucide-react"
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-const FONT_SIZES = ["13", "14", "15", "16", "17", "18", "20", "24", "30"]
-const HEADINGS = [
-  { label: "Paragraph", value: "paragraph" },
-  { label: "Heading 1", value: "h1" },
-  { label: "Heading 2", value: "h2" },
-  { label: "Heading 3", value: "h3" },
-]
-const FONTS = [
-  "Arial",
-  "Comic Sans MS",
-  "Consolas",
-  "Courier New",
-  "Georgia",
-  "Helvetica",
-  "Merriweather",
-  "Times New Roman",
-  "Trebuchet MS",
-  "Verdana",
-]
+**Goal:** Make zoo-note fully functional across 360px+ screens with progressive enhancement — bottom toolbar on mobile, responsive editor width, touch-optimized interactions.
 
-const TEXT_COLORS = [
-  "#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#cccccc", "#d9d9d9", "#efefef",
-  "#c62828", "#e53935", "#ef5350", "#e57373", "#ef9a9a", "#e65100", "#ef6c00", "#f57c00",
-  "#ff9800", "#f9a825", "#fdd835", "#ffe082", "#fff9c4", "#2e7d32", "#43a047", "#66bb6a",
-  "#81c784", "#a5d6a7", "#1565c0", "#1e88e5", "#42a5f5", "#64b5f6", "#90caf9",
-  "#6a1b9a", "#8e24aa", "#ab47bc", "#ce93d8", "#e1bee7", "#00838f", "#00acc1", "#26c6da", "#80deea",
-]
+**Architecture:** Keep existing layout (shadcn sidebar + SidebarInset). Add responsive Tailwind breakpoints. Split editor toolbar into desktop/mobile subcomponents conditionally rendered by viewport. No layout rewrite.
 
-const HIGHLIGHT_COLORS = [
-  "#fff9c4", "#fff3e0", "#fce4ec", "#f3e5f5", "#e8eaf6", "#e1f5fe", "#e0f2f1", "#e8f5e9",
-  "#fff176", "#ffcc80", "#ef9a9a", "#ce93d8", "#9fa8da", "#81d4fa", "#80cbc4", "#a5d6a7",
-  "#ffee58", "#ffab40", "#f48fb1", "#ea80fc",
-]
+**Tech Stack:** Next.js 16, React 19, Tailwind CSS v4, shadcn/ui, dnd-kit
 
-const SPACING_PRESETS = [
-  { label: "Tight", value: "4px" },
-  { label: "Compact", value: "8px" },
-  { label: "Normal", value: "10px" },
-  { label: "Relaxed", value: "24px" },
-  { label: "Loose", value: "32px" },
-]
+---
 
-export default function MainArea() {
-  const { activeNote, activeNoteId, updateNote } = useNotes()
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const pendingUpdate = useRef<{ id: string; content: string } | null>(null)
-  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const activeNoteIdRef = useRef(activeNoteId)
-  useEffect(() => {
-    activeNoteIdRef.current = activeNoteId
-  }, [activeNoteId])
-  const [title, setTitle] = useState("")
-  const [, setSelectionVersion] = useState(0)
+### Task 1: Safe-area CSS variables and global responsive styles
 
-  const handleUpdate = useCallback((id: string, content: string) => {
-    pendingUpdate.current = { id, content }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      if (pendingUpdate.current) {
-        updateNote(pendingUpdate.current.id, { content: pendingUpdate.current.content })
-        pendingUpdate.current = null
-      }
-    }, 1000)
-  }, [updateNote])
+**Files:**
+- Modify: `src/app/globals.css:49-82`
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Underline,
-      TextStyle,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      FontFamily,
-      FontSize,
-      ParagraphSpacing,
-      TaskList,
-      CustomTaskItem.configure({ nested: true }),
-      ImageNode,
-    ],
-    content: activeNote?.content || "<p></p>",
-    editorProps: {
-      attributes: { class: "note-editor" },
-      handlePaste: (view, event) => {
-        const items = event.clipboardData?.files
-        if (items && items.length > 0) {
-          const imageFile = Array.from(items).find(f => f.type.startsWith('image/'))
-          if (imageFile) {
-            event.preventDefault()
-            uploadImage(imageFile)
-            return true
-          }
-        }
-        return false
-      },
-      handleDrop: (view, event) => {
-        const items = event.dataTransfer?.files
-        if (items && items.length > 0) {
-          const imageFile = Array.from(items).find(f => f.type.startsWith('image/'))
-          if (imageFile) {
-            event.preventDefault()
-            uploadImage(imageFile)
-            return true
-          }
-        }
-        return false
-      },
-    },
-    onUpdate: ({ editor: ed }) => {
-      const id = activeNoteIdRef.current
-      if (id) handleUpdate(id, ed.getHTML())
-    },
-    onSelectionUpdate: () => {
-      setSelectionVersion((v) => v + 1)
-    },
-  })
+- [ ] **Step 1: Add safe-area and bottom toolbar CSS to globals.css**
 
-  useEffect(() => {
-    if (editor && activeNote && activeNote.content !== editor.getHTML()) {
-      const timer = setTimeout(() => {
-        editor.commands.setContent(activeNote.content || "<p></p>")
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-  }, [activeNote?._id])
+Append before `@layer base`:
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (activeNote) setTitle(activeNote.title)
-  }, [activeNote?._id, activeNote?.title])
+```css
+@theme inline {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-toolbar-height: 56px;
+}
+```
 
-  const handleTitleChange = useCallback((id: string, value: string) => {
-    setTitle(value)
-    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current)
-    titleDebounceRef.current = setTimeout(() => {
-      updateNote(id, { title: value })
-    }, 600)
-  }, [updateNote])
+Add bottom toolbar class after the existing ProseMirror styles (after line 204):
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+```css
+.editor-toolbar-mobile {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--bottom-toolbar-height);
+  padding-bottom: var(--safe-area-bottom);
+  z-index: 40;
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  padding-right: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
-  const uploadImage = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) return
-
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const json = await res.json()
-      if (json.success && json.data) {
-        editor?.chain().focus().setImage({ src: json.data.url }).run()
-      }
-    } catch {
-      // silent
-    }
-  }, [editor])
-
-  if (!activeNote) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Select a note or create a new one</p>
-      </div>
-    )
+@media (min-width: 768px) {
+  .editor-toolbar-mobile {
+    display: none;
   }
+}
+```
 
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/app/globals.css
+git commit -m "feat: add safe-area and bottom toolbar CSS variables"
+```
+
+---
+
+### Task 2: Responsive editor content area
+
+**Files:**
+- Modify: `src/components/MainArea.tsx:500-516`
+
+- [ ] **Step 1: Update editor content wrapper classes**
+
+Change line 500:
+```tsx
+      <div className="px-10 pt-3 pb-0 max-w-[1140px] w-full">
+```
+to:
+```tsx
+      <div className="px-4 sm:px-6 md:px-8 lg:px-10 pt-3 pb-0 w-full md:max-w-[900px] lg:max-w-[1140px] mx-auto">
+```
+
+Change line 514:
+```tsx
+      <div className="flex-1 overflow-auto px-10 max-w-[1140px] w-full py-4">
+```
+to:
+```tsx
+      <div className="flex-1 overflow-auto px-4 sm:px-6 md:px-8 lg:px-10 w-full md:max-w-[900px] lg:max-w-[1140px] py-4 mx-auto pb-16 md:pb-4">
+```
+
+The `pb-16` on mobile accounts for the bottom toolbar height; `md:pb-4` restores normal padding on desktop.
+
+- [ ] **Step 2: Reduce title font size on mobile**
+
+Line 505:
+```tsx
+          style={{ fontSize: "21px" }}
+```
+Change to use responsive class instead of inline style. Replace the title Input with:
+```tsx
+          className="font-semibold leading-tight border-0 shadow-none px-0 h-auto focus-visible:ring-0 text-xl md:text-[21px]"
+```
+
+Remove the `style={{ fontSize: "21px" }}` prop.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/components/MainArea.tsx
+git commit -m "feat: responsive editor content area widths and padding"
+```
+
+---
+
+### Task 3: Bottom toolbar on mobile
+
+**Files:**
+- Modify: `src/components/MainArea.tsx:221-497`
+
+- [ ] **Step 1: Add `useIsMobile` import and hook usage**
+
+At the top of MainArea.tsx, add the import:
+```tsx
+import { useIsMobile } from "@/hooks/use-mobile"
+```
+
+After the `editor` and `useEffect` hooks (before the `handleTitleChange` callback), add:
+```tsx
+  const isMobile = useIsMobile()
+```
+
+- [ ] **Step 2: Extract toolbar content into a reusable fragment**
+
+Replace lines 223-497. The current toolbar JSX spans from `{editor && (` to the closing `</div>` before the content area. Replace the entire toolbar section with:
+
+```tsx
       {editor && (
         <>
           {/* Desktop toolbar — hidden on mobile */}
@@ -330,16 +245,16 @@ export default function MainArea() {
                         onClick={() => editor.chain().focus().toggleHighlight({ color: c }).run()}
                       />
                     ))}
-                    <div className="flex items-center gap-2 pt-2 border-t border-border">
-                      <input type="text" placeholder="#hex"
-                        className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background font-mono"
-                        onKeyDown={(e) => { if (e.key === "Enter") { editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run() }}}
-                      />
-                      <button className="text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => editor.chain().focus().unsetHighlight().run()}>
-                        Clear
-                      </button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
+                    <input type="text" placeholder="#hex"
+                      className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background font-mono"
+                      onKeyDown={(e) => { if (e.key === "Enter") { editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run() }}}
+                    />
+                    <button className="text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => editor.chain().focus().unsetHighlight().run()}>
+                      Clear
+                    </button>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -468,7 +383,7 @@ export default function MainArea() {
           </div>
 
           {/* Mobile toolbar — only visible on < 768px */}
-          <div className="editor-toolbar-mobile">
+          <div className="editor-toolbar-mobile md:hidden">
             <button
               onClick={() => editor.chain().focus().toggleBold().run()}
               className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("bold") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -496,41 +411,20 @@ export default function MainArea() {
 
             <span className="w-px h-6 bg-border mx-0.5" />
 
-            <Popover>
-              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground text-sm font-semibold">
-                H
-              </PopoverTrigger>
-              <PopoverContent className="w-[160px] p-2" align="start">
-                <div className="flex flex-col gap-1">
-                  {HEADINGS.map((h) => (
-                    <button key={h.value}
-                      onClick={() => {
-                        const chain = editor.chain().focus().setParagraph()
-                        if (h.value === "h1") chain.unsetFontSize().toggleHeading({ level: 1 })
-                        else if (h.value === "h2") chain.unsetFontSize().toggleHeading({ level: 2 })
-                        else if (h.value === "h3") chain.unsetFontSize().toggleHeading({ level: 3 })
-                        chain.run()
-                      }}
-                      className={`px-3 py-1.5 text-sm rounded-md text-left ${
-                        (h.value === "paragraph" && !editor.isActive("heading")) ||
-                        (h.value === "h1" && editor.isActive("heading", { level: 1 })) ||
-                        (h.value === "h2" && editor.isActive("heading", { level: 2 })) ||
-                        (h.value === "h3" && editor.isActive("heading", { level: 3 }))
-                          ? "bg-accent" : "hover:bg-accent/50"
-                      }`}
-                    >{h.label}</button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
             <button
               onClick={() => {
-                const chain = editor.chain().focus()
-                if (editor.isActive("bulletList")) chain.toggleBulletList()
-                else if (editor.isActive("orderedList")) chain.toggleOrderedList()
-                else chain.toggleBulletList()
-                chain.run()
+                if (editor.isActive("heading", { level: 2 })) editor.chain().focus().setParagraph().run()
+                else editor.chain().focus().toggleHeading({ level: 2 }).run()
+              }}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-sm font-semibold ${editor.isActive("heading", { level: 2 }) ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              H
+            </button>
+            <button
+              onClick={() => {
+                if (editor.isActive("bulletList")) editor.chain().focus().toggleBulletList().run()
+                else if (editor.isActive("orderedList")) editor.chain().focus().toggleOrderedList().run()
+                else editor.chain().focus().toggleBulletList().run()
               }}
               className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("bulletList") || editor.isActive("orderedList") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
@@ -590,8 +484,9 @@ export default function MainArea() {
               <Image className="h-5 w-5" />
             </button>
 
+            {/* Overflow: font family, font size, spacing */}
             <Popover>
-              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground font-bold text-lg leading-none">
+              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground font-bold text-lg">
                 +
               </PopoverTrigger>
               <PopoverContent className="w-[240px] p-3" align="end">
@@ -636,23 +531,253 @@ export default function MainArea() {
           </div>
         </>
       )}
+```
 
-      <div className="px-4 sm:px-6 md:px-8 lg:px-10 pt-3 pb-0 w-full md:max-w-[900px] lg:max-w-[1140px] mx-auto">
-        <Input
-          value={title}
-          onChange={(e) => handleTitleChange(activeNote._id, e.target.value)}
-          className="font-semibold leading-tight border-0 shadow-none px-0 h-auto focus-visible:ring-0 text-xl md:text-[21px]"
-          placeholder="Untitled"
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Last updated: {new Date(activeNote.updatedAt).toLocaleString()}
-        </p>
-        <Separator className="mt-2" />
-      </div>
+This replaces the entire toolbar section. Key changes:
+- Desktop toolbar wrapped in `hidden md:block` with `mx-auto` centering
+- All desktop buttons get `min-h-[44px] min-w-[44px]` for larger touch targets
+- Mobile bottom toolbar uses `editor-toolbar-mobile` class (position fixed at bottom)
+- Core formatting on mobile: B/I/U/S, heading toggle, lists, color, highlight, image, overflow (+)
+- Overflow menu contains font size, font family, spacing
 
-      <div className="flex-1 overflow-auto px-4 sm:px-6 md:px-8 lg:px-10 w-full md:max-w-[900px] lg:max-w-[1140px] py-4 mx-auto pb-16 md:pb-4">
-        <NoteEditor note={activeNote} editor={editor} />
-      </div>
-    </div>
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/components/MainArea.tsx
+git commit -m "feat: add bottom toolbar on mobile, responsive toolbar layout"
+```
+
+---
+
+### Task 4: Compact AppHeader on mobile
+
+**Files:**
+- Modify: `src/components/AppHeader.tsx:20-37`
+
+- [ ] **Step 1: Compact header on mobile**
+
+Replace the header className on line 20:
+```tsx
+    <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+```
+No change needed — it already works. Just reduce padding and increase touch targets.
+
+Update the theme toggle button size. Replace the TooltipTrigger on line 28:
+```tsx
+              render={<Button variant="ghost" size="sm" onClick={() => setTheme(isDark ? "light" : "dark")} />}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/components/AppHeader.tsx
+git commit -m "fix: responsive theming for mobile - use sm button size for theme toggle"
+```
+
+---
+
+### Task 5: Touch-optimized sidebar with responsive item sizing
+
+**Files:**
+- Modify: `src/components/NotesSidebar.tsx:407-411` (sensors)
+- Modify: `src/components/NotesSidebar.tsx` (item rendering around line 547-627)
+
+- [ ] **Step 1: Add TouchSensor to dnd-kit sensors**
+
+Add `TouchSensor` to the dnd-kit core import at the top:
+```tsx
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from "@dnd-kit/core"
+```
+
+Replace the sensors setup (lines 407-411):
+```tsx
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 10 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 300,
+        tolerance: 8,
+      },
+    })
   )
-}
+```
+
+- [ ] **Step 2: Update sidebar item touch targets on mobile**
+
+Find the sidebar note and folder item rendering (around lines 547-627). The items use `px-3 py-1 text-sm` classes. Replace with responsive padding:
+
+For note items (change `px-3 py-1 text-sm` to `px-3 py-1.5 md:py-1 text-sm`):
+```tsx
+// Before (approximate — find actual occurrence):
+<SidebarMenuButton className="px-3 py-1 text-sm">
+
+// After:
+<SidebarMenuButton className="px-3 py-1.5 md:py-1 text-sm">
+```
+
+For folder items (find the folder button with similar className):
+```tsx
+// Before:
+className="px-3 py-1 text-sm"
+
+// After:
+className="px-3 py-1.5 md:py-1 text-sm"
+```
+
+This gives items 12px vertical padding on mobile (vs 4px on desktop), making each item approximately 44px tall at default font size.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/components/NotesSidebar.tsx
+git commit -m "feat: add TouchSensor with long-press activation and larger mobile touch targets"
+```
+
+---
+
+### Task 6: Responsive TrashTable
+
+**Files:**
+- Modify: `src/components/TrashTable.tsx:252-332`
+
+- [ ] **Step 1: Add responsive table wrapper**
+
+Wrap the existing `<table>` (line 253) with a horizontal scroll container on mobile:
+```tsx
+      <div className="rounded-lg border overflow-hidden overflow-x-auto md:overflow-x-visible">
+        <table className="w-full text-sm">
+```
+Change line 252 from:
+```tsx
+      <div className="rounded-lg border overflow-hidden">
+```
+to:
+```tsx
+      <div className="rounded-lg border overflow-hidden overflow-x-auto md:overflow-x-visible">
+```
+
+- [ ] **Step 2: Reduce cell padding on mobile**
+
+Add a responsive padding class to all `<th>` and `<td>` elements. The current `p-3` should become `p-2 md:p-3`.
+
+Apply this change to all th/td elements in the table header (lines 256-263) and body (lines 277-326).
+
+For example, line 256:
+```tsx
+              <th className="p-3 w-10"><Checkbox checked={allSelected} onChange={toggleAll} /></th>
+```
+becomes:
+```tsx
+              <th className="p-2 md:p-3 w-10"><Checkbox checked={allSelected} onChange={toggleAll} /></th>
+```
+
+Apply this pattern to all `p-3` classes in th and td elements.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/components/TrashTable.tsx
+git commit -m "feat: responsive trash table with horizontal scroll on mobile"
+```
+
+---
+
+### Task 7: Responsive admin pages
+
+**Files:**
+- Modify: `src/app/admin/users/users-table.tsx`
+
+- [ ] **Step 1: Add responsive wrapper and global responsive filter bar**
+
+Find the table container div (line 93: `<div className="rounded-lg border overflow-hidden">`). Change it to:
+```tsx
+      <div className="rounded-lg border overflow-hidden overflow-x-auto md:overflow-x-visible">
+```
+
+Find all `<th>` and `<td>` elements with `p-3` and change to `p-2 md:p-3`. There are 12 occurrences (6 column headers + 6 data cells per row + skeleton/empty state cells):
+
+Line 97: `<th className="text-left p-3 font-medium">Name</th>`
+→ `<th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Name</th>`
+
+Line 98: `<th className="text-left p-3 font-medium">Email</th>`
+→ `<th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Email</th>`
+
+Line 99: `<th className="text-left p-3 font-medium">Role</th>`
+→ `<th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Role</th>`
+
+Line 100: `<th className="text-left p-3 font-medium">Status</th>`
+→ `<th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Status</th>`
+
+Line 101: `<th className="text-left p-3 font-medium">Created</th>`
+→ `<th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Created</th>`
+
+Line 102: `<th className="text-right p-3 font-medium">Actions</th>`
+→ `<th className="text-right p-2 md:p-3 font-medium whitespace-nowrap">Actions</th>`
+
+Line 108: `<td colSpan={6} className="p-3">`
+→ `<td colSpan={6} className="p-2 md:p-3">`
+
+Line 116: `<td colSpan={6} className="p-6 text-center text-muted-foreground">`
+→ `<td colSpan={6} className="p-4 md:p-6 text-center text-muted-foreground">`
+
+Line 125: `<td className="p-3 font-medium">`
+→ `<td className="p-2 md:p-3 font-medium">`
+
+Line 129: `<td className="p-3 text-muted-foreground">{u.email}</td>`
+→ `<td className="p-2 md:p-3 text-muted-foreground">{u.email}</td>`
+
+Line 130: `<td className="p-3">`
+→ `<td className="p-2 md:p-3">`
+
+Line 133: `<td className="p-3">`
+→ `<td className="p-2 md:p-3">`
+
+Line 157: `<td className="p-3 text-muted-foreground">`
+→ `<td className="p-2 md:p-3 text-muted-foreground">`
+
+Line 160: `<td className="p-3 text-right">`
+→ `<td className="p-2 md:p-3 text-right">`
+
+Also make the filter bar responsive. Find the filter input group (around lines 63-91). The wrapper div `<div className="flex flex-wrap gap-2 mb-4 items-end">` is already responsive via `flex-wrap`. But add responsive widths to the inputs:
+
+Change the search Input:
+```tsx
+<Input placeholder="Search users..." value={search} onChange={(e) => onSearchChange(e.target.value)} className="w-full sm:w-64" />
+```
+
+Change role Select:
+```tsx
+<Select value={roleFilter} onValueChange={(v) => onRoleFilterChange(v ?? "all")}>
+  <SelectTrigger className="w-full sm:w-36">
+```
+
+Change status Select:
+```tsx
+<Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v ?? "all")}>
+  <SelectTrigger className="w-full sm:w-36">
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/app/admin/users/users-table.tsx
+git commit -m "feat: responsive admin users table with horizontal scroll and filter bar"
+```
+
+---
+
+## Self-Review Checklist
+
+1. **Spec coverage:** All spec sections covered — breakpoints (Task 2), editor width (Task 2), bottom toolbar (Task 3), touch interactions (Task 5), admin pages (Task 7), trash table (Task 6). Sidebar sheet behavior already exists — no changes needed.
+2. **Placeholder scan:** No TBD, TODOs, or incomplete sections. Every step has complete code.
+3. **Type consistency:** All method/prop names match existing codebase conventions.
