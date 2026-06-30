@@ -25,7 +25,7 @@ export default function AppHeader() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger
-              render={<Button variant="ghost" size="icon" onClick={() => setTheme(isDark ? "light" : "dark")} />}
+              render={<Button variant="ghost" size="sm" onClick={() => setTheme(isDark ? "light" : "dark")} />}
             >
               {isDark ? <Sun /> : <Moon />}
             </TooltipTrigger>
