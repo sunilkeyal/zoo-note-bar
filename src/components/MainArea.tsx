@@ -221,280 +221,420 @@ export default function MainArea() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       {editor && (
-        <div className="px-10 pt-2 max-w-[1140px] w-full">
-          <TooltipProvider>
-          <div className="flex items-center gap-1 px-3 py-1 border rounded-lg bg-card">
-            <ToggleGroup type="multiple" size="sm">
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="bold" pressed={editor.isActive("bold")} onPressedChange={() => editor.chain().focus().toggleBold().run()} className="h-8 w-8" />}>
-                  <Bold className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Bold</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="italic" pressed={editor.isActive("italic")} onPressedChange={() => editor.chain().focus().toggleItalic().run()} className="h-8 w-8" />}>
-                  <Italic className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Italic</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="underline" pressed={editor.isActive("underline")} onPressedChange={() => editor.chain().focus().toggleUnderline().run()} className="h-8 w-8" />}>
-                  <UnderlineIcon className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Underline</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="strike" pressed={editor.isActive("strike")} onPressedChange={() => editor.chain().focus().toggleStrike().run()} className="h-8 w-8" />}>
-                  <Strikethrough className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Strikethrough</TooltipContent>
-              </Tooltip>
-            </ToggleGroup>
+        <>
+          {/* Desktop toolbar — hidden on mobile */}
+          <div className="hidden md:block px-4 sm:px-6 md:px-8 lg:px-10 pt-2 w-full md:max-w-[900px] lg:max-w-[1140px] mx-auto">
+            <TooltipProvider>
+            <div className="flex items-center gap-1 px-3 py-1 border rounded-lg bg-card overflow-x-auto">
+              <ToggleGroup type="multiple" size="sm">
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="bold" pressed={editor.isActive("bold")} onPressedChange={() => editor.chain().focus().toggleBold().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <Bold className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Bold</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="italic" pressed={editor.isActive("italic")} onPressedChange={() => editor.chain().focus().toggleItalic().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <Italic className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Italic</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="underline" pressed={editor.isActive("underline")} onPressedChange={() => editor.chain().focus().toggleUnderline().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <UnderlineIcon className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Underline</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="strike" pressed={editor.isActive("strike")} onPressedChange={() => editor.chain().focus().toggleStrike().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <Strikethrough className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Strikethrough</TooltipContent>
+                </Tooltip>
+              </ToggleGroup>
 
-            <Separator orientation="vertical" className="mx-1 h-6" />
+              <Separator orientation="vertical" className="mx-1 h-6" />
 
-            <ToggleGroup type="multiple" size="sm">
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="bulletList" pressed={editor.isActive("bulletList")} onPressedChange={() => editor.chain().focus().toggleBulletList().run()} className="h-8 w-8" />}>
-                  <List className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Bullet list</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="orderedList" pressed={editor.isActive("orderedList")} onPressedChange={() => editor.chain().focus().toggleOrderedList().run()} className="h-8 w-8" />}>
-                  <ListOrdered className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Ordered list</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger render={<ToggleGroupItem value="taskList" pressed={editor.isActive("taskList")} onPressedChange={() => editor.chain().focus().toggleTaskList().run()} className="h-8 w-8" />}>
-                  <ListChecks className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Todo list</TooltipContent>
-              </Tooltip>
-            </ToggleGroup>
+              <ToggleGroup type="multiple" size="sm">
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="bulletList" pressed={editor.isActive("bulletList")} onPressedChange={() => editor.chain().focus().toggleBulletList().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <List className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Bullet list</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="orderedList" pressed={editor.isActive("orderedList")} onPressedChange={() => editor.chain().focus().toggleOrderedList().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <ListOrdered className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Ordered list</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger render={<ToggleGroupItem value="taskList" pressed={editor.isActive("taskList")} onPressedChange={() => editor.chain().focus().toggleTaskList().run()} className="min-h-[44px] min-w-[44px]" />}>
+                    <ListChecks className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Todo list</TooltipContent>
+                </Tooltip>
+              </ToggleGroup>
 
-            <Separator orientation="vertical" className="mx-1 h-6" />
+              <Separator orientation="vertical" className="mx-1 h-6" />
+
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger render={<PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md border border-input hover:bg-accent relative" />}>
+                    <Palette className="h-4 w-4" />
+                    <span
+                      className="absolute bottom-1 h-[3px] w-3 rounded-full"
+                      style={{ backgroundColor: editor.getAttributes("textStyle").color || "currentColor" }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>Text color</TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-[280px] p-3" align="start">
+                  <div className="text-sm font-medium mb-2">Text Color</div>
+                  <div className="grid grid-cols-8 gap-1.5 mb-2">
+                    {TEXT_COLORS.map((c) => (
+                      <button key={c}
+                        className="h-7 w-7 rounded-md border border-input hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c }}
+                        onClick={() => editor.chain().focus().setColor(c).run()}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
+                    <input type="text" placeholder="#hex"
+                      className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background font-mono"
+                      onKeyDown={(e) => { if (e.key === "Enter") { editor.chain().focus().setColor((e.target as HTMLInputElement).value).run() }}}
+                    />
+                    <button className="text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => editor.chain().focus().unsetColor().run()}>
+                      Clear
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger render={<PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md border border-input hover:bg-accent" />}>
+                    <Highlighter className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Highlight color</TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-[280px] p-3" align="start">
+                  <div className="text-sm font-medium mb-2">Highlight Color</div>
+                  <div className="grid grid-cols-5 gap-1.5 mb-2">
+                    {HIGHLIGHT_COLORS.map((c) => (
+                      <button key={c}
+                        className="h-8 w-full rounded-md border border-input hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c }}
+                        onClick={() => editor.chain().focus().toggleHighlight({ color: c }).run()}
+                      />
+                    ))}
+                    <div className="flex items-center gap-2 pt-2 border-t border-border">
+                      <input type="text" placeholder="#hex"
+                        className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background font-mono"
+                        onKeyDown={(e) => { if (e.key === "Enter") { editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run() }}}
+                      />
+                      <button className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => editor.chain().focus().unsetHighlight().run()}>
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger render={<PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md border border-input hover:bg-accent" />}>
+                    <ArrowUpDown className="h-4 w-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Paragraph spacing</TooltipContent>
+                </Tooltip>
+                <PopoverContent className="w-[260px] p-3" align="start">
+                  <div className="text-sm font-medium mb-3">Paragraph Spacing</div>
+                  <div className="flex flex-col gap-2">
+                    {SPACING_PRESETS.map((p) => {
+                      const currentSpacing = editor.getAttributes("paragraph").paragraphSpacing
+                      const isActive = currentSpacing === p.value || (!currentSpacing && p.value === "10px")
+                      return (
+                        <button key={p.value}
+                          onClick={() => editor.chain().focus().setParagraphSpacing(p.value).run()}
+                          className={`px-3 py-2 text-sm rounded-md font-medium transition-all ${
+                            isActive ? "bg-primary text-primary-foreground" : "border border-input bg-background hover:bg-accent"
+                          }`}
+                        >
+                          {p.label} <span className="text-xs opacity-75">({p.value})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Separator orientation="vertical" className="mx-1 h-6" />
+
+              <Select
+                value={
+                  editor.isActive("heading", { level: 1 }) ? "h1" :
+                  editor.isActive("heading", { level: 2 }) ? "h2" :
+                  editor.isActive("heading", { level: 3 }) ? "h3" : "paragraph"
+                }
+                onValueChange={(val) => {
+                  const chain = editor.chain().focus().setParagraph()
+                  if (val === "h1") chain.unsetFontSize().toggleHeading({ level: 1 })
+                  else if (val === "h2") chain.unsetFontSize().toggleHeading({ level: 2 })
+                  else if (val === "h3") chain.unsetFontSize().toggleHeading({ level: 3 })
+                  chain.run()
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger render={<SelectTrigger className="h-7 w-[110px] text-sm" />}>
+                    <SelectValue />
+                  </TooltipTrigger>
+                  <TooltipContent>Styles</TooltipContent>
+                </Tooltip>
+                <SelectContent>
+                  {HEADINGS.map((h) => (
+                    <SelectItem key={h.value} value={h.value} className="text-sm">{h.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={editor.getAttributes("textStyle").fontFamily || "default"}
+                onValueChange={(val) => {
+                  if (val === "default") editor.chain().focus().unsetFontFamily().run()
+                  else editor.chain().focus().setFontFamily(val).run()
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger render={<SelectTrigger className="h-7 w-[130px] text-sm" style={{ fontFamily: editor.getAttributes("textStyle").fontFamily || "inherit" }} />}>
+                    <SelectValue placeholder="Font" />
+                  </TooltipTrigger>
+                  <TooltipContent>Font family</TooltipContent>
+                </Tooltip>
+                <SelectContent>
+                  <SelectItem value="default" className="text-sm">Default</SelectItem>
+                  {FONTS.map((f) => (
+                    <SelectItem key={f} value={f} className="text-sm" style={{ fontFamily: f }}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={(() => {
+                  const explicit = editor.getAttributes("textStyle").fontSize?.replace("px", "")
+                  if (explicit) return explicit
+                  if (editor.isActive("heading", { level: 1 })) return "20"
+                  if (editor.isActive("heading", { level: 2 })) return "18"
+                  if (editor.isActive("heading", { level: 3 })) return "16"
+                  return "14"
+                })()}
+                onValueChange={(val) => editor.chain().focus().setFontSize(val + "px").run()}
+              >
+                <Tooltip>
+                  <TooltipTrigger render={<SelectTrigger className="h-7 w-[70px] text-sm" />}>
+                    <SelectValue />
+                  </TooltipTrigger>
+                  <TooltipContent>Font size</TooltipContent>
+                </Tooltip>
+                <SelectContent>
+                  {FONT_SIZES.map((s) => (
+                    <SelectItem key={s} value={s} className="text-sm">{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Separator orientation="vertical" className="mx-1 h-6" />
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md border border-input hover:bg-accent"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Image className="h-4 w-4" />
+                    </button>
+                  }
+                />
+                <TooltipContent>Insert image</TooltipContent>
+              </Tooltip>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadImage(file); e.target.value = '' }}
+              />
+            </div>
+            </TooltipProvider>
+          </div>
+
+          {/* Mobile toolbar — only visible on < 768px */}
+          <div className="editor-toolbar-mobile">
+            <button
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("bold") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Bold className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("italic") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Italic className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("underline") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <UnderlineIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("strike") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Strikethrough className="h-5 w-5" />
+            </button>
+
+            <span className="w-px h-6 bg-border mx-0.5" />
 
             <Popover>
-              <Tooltip>
-                <TooltipTrigger render={<PopoverTrigger className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent relative" />}>
-                  <Palette className="h-4 w-4" />
-                  <span
-                    className="absolute bottom-1 h-[3px] w-3 rounded-full"
-                    style={{ backgroundColor: editor.getAttributes("textStyle").color || "currentColor" }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Text color</TooltipContent>
-              </Tooltip>
+              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground text-sm font-semibold">
+                H
+              </PopoverTrigger>
+              <PopoverContent className="w-[160px] p-2" align="start">
+                <div className="flex flex-col gap-1">
+                  {HEADINGS.map((h) => (
+                    <button key={h.value}
+                      onClick={() => {
+                        const chain = editor.chain().focus().setParagraph()
+                        if (h.value === "h1") chain.unsetFontSize().toggleHeading({ level: 1 })
+                        else if (h.value === "h2") chain.unsetFontSize().toggleHeading({ level: 2 })
+                        else if (h.value === "h3") chain.unsetFontSize().toggleHeading({ level: 3 })
+                        chain.run()
+                      }}
+                      className={`px-3 py-1.5 text-sm rounded-md text-left ${
+                        (h.value === "paragraph" && !editor.isActive("heading")) ||
+                        (h.value === "h1" && editor.isActive("heading", { level: 1 })) ||
+                        (h.value === "h2" && editor.isActive("heading", { level: 2 })) ||
+                        (h.value === "h3" && editor.isActive("heading", { level: 3 }))
+                          ? "bg-accent" : "hover:bg-accent/50"
+                      }`}
+                    >{h.label}</button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <button
+              onClick={() => {
+                const chain = editor.chain().focus()
+                if (editor.isActive("bulletList")) chain.toggleBulletList()
+                else if (editor.isActive("orderedList")) chain.toggleOrderedList()
+                else chain.toggleBulletList()
+                chain.run()
+              }}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("bulletList") || editor.isActive("orderedList") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <List className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleTaskList().run()}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md ${editor.isActive("taskList") ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <ListChecks className="h-5 w-5" />
+            </button>
+
+            <span className="w-px h-6 bg-border mx-0.5" />
+
+            <Popover>
+              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
+                <Palette className="h-5 w-5" />
+              </PopoverTrigger>
               <PopoverContent className="w-[280px] p-3" align="start">
                 <div className="text-sm font-medium mb-2">Text Color</div>
                 <div className="grid grid-cols-8 gap-1.5 mb-2">
                   {TEXT_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      className="h-7 w-7 rounded-md border border-input hover:scale-110 transition-transform"
+                    <button key={c}
+                      className="h-8 w-8 rounded-md border border-input hover:scale-110 transition-transform"
                       style={{ backgroundColor: c }}
                       onClick={() => editor.chain().focus().setColor(c).run()}
                     />
                   ))}
                 </div>
-                <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <input
-                    type="text"
-                    placeholder="#hex"
-                    className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background font-mono"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()
-                      }
-                    }}
-                  />
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => editor.chain().focus().unsetColor().run()}
-                  >
-                    Clear
-                  </button>
-                </div>
               </PopoverContent>
             </Popover>
 
             <Popover>
-              <Tooltip>
-                <TooltipTrigger render={<PopoverTrigger className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent" />}>
-                  <Highlighter className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Highlight color</TooltipContent>
-              </Tooltip>
+              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
+                <Highlighter className="h-5 w-5" />
+              </PopoverTrigger>
               <PopoverContent className="w-[280px] p-3" align="start">
-                <div className="text-sm font-medium mb-2">Highlight Color</div>
+                <div className="text-sm font-medium mb-2">Highlight</div>
                 <div className="grid grid-cols-5 gap-1.5 mb-2">
                   {HIGHLIGHT_COLORS.map((c) => (
-                    <button
-                      key={c}
+                    <button key={c}
                       className="h-8 w-full rounded-md border border-input hover:scale-110 transition-transform"
                       style={{ backgroundColor: c }}
                       onClick={() => editor.chain().focus().toggleHighlight({ color: c }).run()}
                     />
                   ))}
                 </div>
-                <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <input
-                    type="text"
-                    placeholder="#hex"
-                    className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background font-mono"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run()
-                      }
-                    }}
-                  />
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => editor.chain().focus().unsetHighlight().run()}
-                  >
-                    Clear
-                  </button>
-                </div>
               </PopoverContent>
             </Popover>
+
+            <span className="w-px h-6 bg-border mx-0.5" />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+            >
+              <Image className="h-5 w-5" />
+            </button>
 
             <Popover>
-              <Tooltip>
-                <TooltipTrigger render={<PopoverTrigger className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent" />}>
-                  <ArrowUpDown className="h-4 w-4" />
-                </TooltipTrigger>
-                <TooltipContent>Paragraph spacing</TooltipContent>
-              </Tooltip>
-              <PopoverContent className="w-[260px] p-3" align="start">
-                <div className="text-sm font-medium mb-3">Paragraph Spacing</div>
-                <div className="flex flex-col gap-2">
-                  {SPACING_PRESETS.map((p) => {
-                    const currentSpacing = editor.getAttributes("paragraph").paragraphSpacing
-                    const isActive = currentSpacing === p.value || (!currentSpacing && p.value === "10px")
-                    return (
-                      <button
-                        key={p.value}
-                        onClick={() => editor.chain().focus().setParagraphSpacing(p.value).run()}
-                        className={`px-3 py-2 text-sm rounded-md font-medium transition-all ${
-                          isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-input bg-background hover:bg-accent"
-                        }`}
-                      >
-                        {p.label} <span className="text-xs opacity-75">({p.value})</span>
-                      </button>
-                    )
-                  })}
+              <PopoverTrigger className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground font-bold text-lg leading-none">
+                +
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-3" align="end">
+                <div className="text-sm font-medium mb-2">Font Size</div>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {FONT_SIZES.filter(s => parseInt(s) >= 14 && parseInt(s) <= 20).map((s) => (
+                    <button key={s}
+                      onClick={() => editor.chain().focus().setFontSize(s + "px").run()}
+                      className={`px-2 py-1 text-xs rounded-md border ${editor.getAttributes("textStyle").fontSize?.replace("px","") === s ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent"}`}
+                    >{s}</button>
+                  ))}
+                </div>
+                <div className="text-sm font-medium mb-2">Font</div>
+                <Select value={editor.getAttributes("textStyle").fontFamily || "default"}
+                  onValueChange={(val) => {
+                    if (val === "default") editor.chain().focus().unsetFontFamily().run()
+                    else editor.chain().focus().setFontFamily(val).run()
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Font" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default" className="text-xs">Default</SelectItem>
+                    {FONTS.map((f) => (
+                      <SelectItem key={f} value={f} className="text-xs" style={{ fontFamily: f }}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="text-sm font-medium mb-2 mt-2">Spacing</div>
+                <div className="flex flex-wrap gap-1">
+                  {SPACING_PRESETS.map((p) => (
+                    <button key={p.value}
+                      onClick={() => editor.chain().focus().setParagraphSpacing(p.value).run()}
+                      className={`px-2 py-1 text-xs rounded-md border ${
+                        (editor.getAttributes("paragraph").paragraphSpacing === p.value || (!editor.getAttributes("paragraph").paragraphSpacing && p.value === "10px"))
+                          ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent"
+                      }`}
+                    >{p.label}</button>
+                  ))}
                 </div>
               </PopoverContent>
             </Popover>
-
-            <Separator orientation="vertical" className="mx-1 h-6" />
-
-            <Select
-              value={
-                editor.isActive("heading", { level: 1 }) ? "h1" :
-                editor.isActive("heading", { level: 2 }) ? "h2" :
-                editor.isActive("heading", { level: 3 }) ? "h3" : "paragraph"
-              }
-              onValueChange={(val) => {
-                const chain = editor.chain().focus().setParagraph()
-                if (val === "h1") chain.unsetFontSize().toggleHeading({ level: 1 })
-                else if (val === "h2") chain.unsetFontSize().toggleHeading({ level: 2 })
-                else if (val === "h3") chain.unsetFontSize().toggleHeading({ level: 3 })
-                chain.run()
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger render={<SelectTrigger className="h-7 w-[110px] text-sm" />}>
-                  <SelectValue />
-                </TooltipTrigger>
-                <TooltipContent>Styles</TooltipContent>
-              </Tooltip>
-              <SelectContent>
-                {HEADINGS.map((h) => (
-                  <SelectItem key={h.value} value={h.value} className="text-sm">{h.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={editor.getAttributes("textStyle").fontFamily || "default"}
-              onValueChange={(val) => {
-                if (val === "default") editor.chain().focus().unsetFontFamily().run()
-                else editor.chain().focus().setFontFamily(val).run()
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger render={<SelectTrigger className="h-7 w-[130px] text-sm" style={{ fontFamily: editor.getAttributes("textStyle").fontFamily || "inherit" }} />}>
-                  <SelectValue placeholder="Font" />
-                </TooltipTrigger>
-                <TooltipContent>Font family</TooltipContent>
-              </Tooltip>
-              <SelectContent>
-                <SelectItem value="default" className="text-sm">Default</SelectItem>
-                {FONTS.map((f) => (
-                  <SelectItem key={f} value={f} className="text-sm" style={{ fontFamily: f }}>{f}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={(() => {
-                const explicit = editor.getAttributes("textStyle").fontSize?.replace("px", "")
-                if (explicit) return explicit
-                if (editor.isActive("heading", { level: 1 })) return "20"
-                if (editor.isActive("heading", { level: 2 })) return "18"
-                if (editor.isActive("heading", { level: 3 })) return "16"
-                return "14"
-              })()}
-              onValueChange={(val) => editor.chain().focus().setFontSize(val + "px").run()}
-            >
-              <Tooltip>
-                <TooltipTrigger render={<SelectTrigger className="h-7 w-[70px] text-sm" />}>
-                  <SelectValue />
-                </TooltipTrigger>
-                <TooltipContent>Font size</TooltipContent>
-              </Tooltip>
-              <SelectContent>
-                {FONT_SIZES.map((s) => (
-                  <SelectItem key={s} value={s} className="text-sm">{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Separator orientation="vertical" className="mx-1 h-6" />
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    className="h-8 w-8 flex items-center justify-center rounded-md border border-input hover:bg-accent"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Image className="h-4 w-4" />
-                  </button>
-                }
-              />
-              <TooltipContent>Insert image</TooltipContent>
-            </Tooltip>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) uploadImage(file)
-                e.target.value = ''
-              }}
-            />
-
           </div>
-          </TooltipProvider>
-        </div>
+        </>
       )}
 
       <div className="px-4 sm:px-6 md:px-8 lg:px-10 pt-3 pb-0 w-full md:max-w-[900px] lg:max-w-[1140px] mx-auto">
