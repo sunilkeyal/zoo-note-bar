@@ -44,6 +44,8 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --font-sans: var(--font-sans);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-toolbar-height: 56px;
 }
 
 :root {
@@ -201,4 +203,29 @@
 }
 .ProseMirror ul[data-type="taskList"] li[data-type="taskItem"] .task-content p[style] {
   margin: 0 !important;
+}
+
+.editor-toolbar-mobile {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--bottom-toolbar-height);
+  padding-bottom: var(--safe-area-bottom);
+  z-index: 40;
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  padding-right: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) {
+  .editor-toolbar-mobile {
+    display: none;
+  }
 }
