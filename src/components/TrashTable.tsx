@@ -183,19 +183,19 @@ export default function TrashTable({ items, isAdmin, loading, error, onRestore, 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="p-3 w-10" /><th className="p-3 w-8" /><th className="p-3 font-medium text-left">Name</th>
-              <th className="p-3 font-medium text-left">Type</th>
-              {isAdmin && <th className="p-3 font-medium text-left">Deleted By</th>}
-              <th className="p-3 font-medium text-left">Deleted At</th>
-              <th className="p-3 font-medium text-left">Auto-purge</th>
-              <th className="p-3 font-medium text-right">Actions</th>
+              <th className="p-2 md:p-3 w-10" /><th className="p-2 md:p-3 w-8" /><th className="p-2 md:p-3 font-medium text-left">Name</th>
+              <th className="p-2 md:p-3 font-medium text-left">Type</th>
+              {isAdmin && <th className="p-2 md:p-3 font-medium text-left">Deleted By</th>}
+              <th className="p-2 md:p-3 font-medium text-left">Deleted At</th>
+              <th className="p-2 md:p-3 font-medium text-left">Auto-purge</th>
+              <th className="p-2 md:p-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {[...Array(3)].map((_, i) => (
               <tr key={i} className="border-b last:border-0">
                 {[...Array(isAdmin ? 8 : 7)].map((_, j) => (
-                  <td key={j} className="p-3"><div className="h-4 bg-muted rounded animate-pulse" style={{ width: j === 2 ? "60%" : "80%" }} /></td>
+                  <td key={j} className="p-2 md:p-3"><div className="h-4 bg-muted rounded animate-pulse" style={{ width: j === 2 ? "60%" : "80%" }} /></td>
                 ))}
               </tr>
             ))}
@@ -249,18 +249,18 @@ export default function TrashTable({ items, isAdmin, loading, error, onRestore, 
         </div>
       )}
 
-      <div className="rounded-lg border overflow-hidden">
+      <div className="rounded-lg border overflow-hidden overflow-x-auto md:overflow-x-visible">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="p-3 w-10"><Checkbox checked={allSelected} onChange={toggleAll} /></th>
-              <th className="p-3 w-8"><span className="sr-only">Type</span></th>
-              <th className="text-left p-3 font-medium">Name</th>
-              <th className="text-left p-3 font-medium">Type</th>
-              {isAdmin && <th className="text-left p-3 font-medium">Deleted By</th>}
-              <th className="text-left p-3 font-medium">Deleted At</th>
-              <th className="text-left p-3 font-medium">Auto-purge</th>
-              <th className="text-right p-3 font-medium">Actions</th>
+              <th className="p-2 md:p-3 w-10"><Checkbox checked={allSelected} onChange={toggleAll} /></th>
+              <th className="p-2 md:p-3 w-8"><span className="sr-only">Type</span></th>
+              <th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Name</th>
+              <th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Type</th>
+              {isAdmin && <th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Deleted By</th>}
+              <th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Deleted At</th>
+              <th className="text-left p-2 md:p-3 font-medium whitespace-nowrap">Auto-purge</th>
+              <th className="text-right p-2 md:p-3 font-medium whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -274,16 +274,16 @@ export default function TrashTable({ items, isAdmin, loading, error, onRestore, 
 
               return (
                 <tr key={item.id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${isSelected ? "bg-muted/20" : ""}`}>
-                  <td className="p-3">
+                  <td className="p-2 md:p-3">
                     <div className="flex items-center gap-1">
                       <Checkbox checked={isSelected} indeterminate={isIndet} disabled={isLocked} onChange={() => toggle(item.id)} />
                       {isLocked && <span className="text-muted-foreground" title="Required — parent folder of a selected note"><LockIcon /></span>}
                     </div>
                   </td>
-                  <td className="p-3 text-muted-foreground">
+                  <td className="p-2 md:p-3 text-muted-foreground">
                     {item.type === "folder" ? <FolderIcon /> : <FileTextIcon />}
                   </td>
-                  <td className="p-3">
+                  <td className="p-2 md:p-3">
                     <div className="flex items-center gap-2">
                       <span className={item.type === "folder" ? "font-medium" : ""}>{item.title}</span>
                       {item.type === "folder" && item.notesCount && (
@@ -296,7 +296,7 @@ export default function TrashTable({ items, isAdmin, loading, error, onRestore, 
                       )}
                     </div>
                   </td>
-                  <td className="p-3">
+                  <td className="p-2 md:p-3">
                     <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${
                       item.type === "folder"
                         ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
@@ -305,14 +305,14 @@ export default function TrashTable({ items, isAdmin, loading, error, onRestore, 
                       {item.type === "folder" ? "Folder" : "Note"}
                     </span>
                   </td>
-                  {isAdmin && <td className="p-3 text-muted-foreground">{item.user || "-"}</td>}
-                  <td className="p-3 text-muted-foreground whitespace-nowrap">{item.deletedAt}</td>
-                  <td className="p-3">
+                  {isAdmin && <td className="p-2 md:p-3 text-muted-foreground">{item.user || "-"}</td>}
+                  <td className="p-2 md:p-3 text-muted-foreground whitespace-nowrap">{item.deletedAt}</td>
+                  <td className="p-2 md:p-3">
                     <span className={`text-xs ${computeDaysLeft(item.deletedAt) === "Expiring today" ? "text-destructive" : "text-muted-foreground"}`}>
                       {computeDaysLeft(item.deletedAt)}
                     </span>
                   </td>
-                  <td className="p-3 text-right">
+                  <td className="p-2 md:p-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="xs" onClick={() => onRestore(
                         item.type === "note" ? [item.id] : [],
