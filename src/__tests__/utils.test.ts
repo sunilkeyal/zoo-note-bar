@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cn } from '@/lib/utils'
+import { cn, stripHtml } from '@/lib/utils'
 
 describe('cn', () => {
   it('merges class strings', () => {
@@ -30,5 +30,23 @@ describe('cn', () => {
 
   it('handles empty input', () => {
     expect(cn()).toBe('')
+  })
+})
+
+describe('stripHtml', () => {
+  it('strips HTML tags', () => {
+    expect(stripHtml('<p>Hello <strong>world</strong></p>')).toBe('Hello world')
+  })
+
+  it('returns empty string for empty input', () => {
+    expect(stripHtml('')).toBe('')
+  })
+
+  it('returns plain text unchanged', () => {
+    expect(stripHtml('hello world')).toBe('hello world')
+  })
+
+  it('trims whitespace', () => {
+    expect(stripHtml('  <p>content</p>  ')).toBe('content')
   })
 })
