@@ -1,19 +1,166 @@
 "use client"
 
-import { Clock } from "lucide-react"
+import React, { useState, useMemo } from "react"
+import { Clock, FileText, Folder, Search } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { useNotes } from "@/contexts/NoteContext"
+import { Note } from "@/types"
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").trim()
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now()
+  const diff = now - new Date(dateStr).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60) return "just now"
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 14) return `${d}d ago`
+  const w = Math.floor(d / 7)
+  if (w < 8) return `${w}w ago`
+  return new Date(dateStr).toLocaleDateString()
+}
+
+function NoteFooter({ note }: { note: Note }) {
+  return (
+    <div className="flex items-center justify-between mt-3 pt-3 border-t">
+      {note.folderName ? (
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Folder className="h-3 w-3" />{note.folderName}
+        </span>
+      ) : <span />}
+      <span className="text-xs text-muted-foreground">{formatRelativeTime(note.updatedAt)}</span>
+    </div>
+  )
+}
 
 export default function RecentPage() {
-  return (
-    <div className="py-2">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="size-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-          <Clock className="size-5 text-violet-500" />
-        </div>
-        <h1 className="text-2xl font-bold">Recent</h1>
+  const { notes, loading, error, setActiveNoteId, expandedFolders, toggleFolder, fetchNotes } = useNotes()
+  const [filter, setFilter] = useState("")
+
+  const sortedNotes = useMemo(
+    () => [...notes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [notes]
+  )
+
+  const filteredNotes = useMemo(() => {
+    if (!filter.trim()) return sortedNotes
+    const q = filter.toLowerCase()
+    return sortedNotes.filter(n => n.title.toLowerCase().includes(q))
+  }, [sortedNotes, filter])
+
+  function handleNoteClick(id: string) {
+    const note = notes.find(n => n._id === id)
+    if (note?.folderId && !expandedFolders.has(note.folderId)) {
+      toggleFolder(note.folderId)
+    }
+    setActiveNoteId(id)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
-      <p className="text-muted-foreground">
-        Coming soon — quickly jump back to notes you&apos;ve recently viewed or edited.
-      </p>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-destructive">{error}</p>
+          <Button variant="outline" onClick={() => fetchNotes()}>Retry</Button>
+        </div>
+      </div>
+    )
+  }
+
+  const [hero, ...rest] = filteredNotes
+
+  return (
+    <div className="py-2 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+            <Clock className="size-5 text-violet-500" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Recent</h1>
+            <p className="text-xs text-muted-foreground">Your most recently edited notes</p>
+          </div>
+        </div>
+        <div className="relative hidden sm:block">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter notes..."
+            className="pl-8 h-8 text-sm w-44"
+          />
+        </div>
+      </div>
+
+      {/* Empty state */}
+      {filteredNotes.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-12">
+          {notes.length === 0
+            ? "No notes yet. Create your first note to see it here."
+            : "No notes match your search."}
+        </p>
+      )}
+
+      {/* Hero card */}
+      {hero && (
+        <div
+          onClick={() => handleNoteClick(hero._id)}
+          className="p-5 rounded-xl border-2 border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-900/10 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors cursor-pointer"
+        >
+          <p className="font-semibold text-base">{hero.title || "Untitled"}</p>
+          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+            {stripHtml(hero.content) || "No content"}
+          </p>
+          <NoteFooter note={hero} />
+        </div>
+      )}
+
+      {/* Grid */}
+      {rest.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {rest.map(note => (
+            <div
+              key={note._id}
+              onClick={() => handleNoteClick(note._id)}
+              className="flex flex-col gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-start gap-3">
+                <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{note.title || "Untitled"}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {stripHtml(note.content) || "No content"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pl-7">
+                {note.folderName ? (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Folder className="h-3 w-3" />{note.folderName}
+                  </span>
+                ) : <span />}
+                <span className="text-xs text-muted-foreground">{formatRelativeTime(note.updatedAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
