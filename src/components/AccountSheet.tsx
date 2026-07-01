@@ -37,6 +37,15 @@ export default function AccountSheet({ open, onClose }: AccountSheetProps) {
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [open, onClose])
+
   function validate(): boolean {
     const errs: Record<string, string> = {}
     if (!name.trim()) errs.name = "Name is required."
@@ -68,38 +77,47 @@ export default function AccountSheet({ open, onClose }: AccountSheetProps) {
       body.newPassword = newPassword
     }
 
-    const res = await fetch("/api/account", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
 
-    setLoading(false)
-    const data = await res.json()
+      setLoading(false)
+      const data = await res.json()
 
-    if (!res.ok) {
-      if (res.status === 409) {
-        setErrors({ email: data.error })
-      } else if (data.error?.toLowerCase().includes("password")) {
-        setErrors({ currentPassword: data.error })
+      if (!res.ok) {
+        if (res.status === 409) {
+          setErrors({ email: data.error })
+        } else if (data.error?.toLowerCase().includes("password") && !data.error?.toLowerCase().includes("new")) {
+          setErrors({ currentPassword: data.error })
+        } else if (data.error?.toLowerCase().includes("new password")) {
+          setErrors({ newPassword: data.error })
+        } else {
+          setErrors({ form: data.error })
+        }
+        return
+      }
+
+      const { changed } = data as { changed: string[] }
+
+      if (changed.includes("email") || changed.includes("password")) {
+        setSuccessMsg("Saved! Signing you out…")
+        setTimeout(() => signOut({ callbackUrl: "/login" }), 500)
       } else {
-        setErrors({ form: data.error })
+        if (changed.includes("name")) {
+          await update({ name })
+        }
+        setSuccessMsg("Account updated.")
+        setCurrentPassword("")
+        setNewPassword("")
+        setConfirmPassword("")
       }
-      return
-    }
-
-    const { changed } = data as { changed: string[] }
-
-    if (changed.includes("email") || changed.includes("password")) {
-      await signOut({ callbackUrl: "/login" })
-    } else {
-      if (changed.includes("name")) {
-        await update({ name })
-      }
-      setSuccessMsg("Account updated.")
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
+    } catch {
+      setErrors({ form: "Network error. Please try again." })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -118,6 +136,7 @@ export default function AccountSheet({ open, onClose }: AccountSheetProps) {
       <div
         role="dialog"
         aria-label="Account settings"
+        aria-modal="true"
         className="fixed top-0 right-0 h-full w-80 bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-700 z-50 flex flex-col"
       >
         {/* Header */}
