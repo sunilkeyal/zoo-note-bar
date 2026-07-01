@@ -26,17 +26,26 @@
 - Create: `src/__tests__/recent-page.test.tsx`
 
 **Interfaces:**
-- Consumes: `useNotes()` from `@/contexts/NoteContext` — fields used: `notes: Note[]`, `loading: boolean`, `error: string | null`, `setActiveNoteId: (id: string | null) => void`, `expandedFolders: Set<string>`, `toggleFolder: (id: string) => void`, `fetchNotes: () => Promise<void>`
-- Consumes: `Note` type from `@/types` — fields used: `_id`, `title`, `content`, `folderId`, `folderName`, `updatedAt`
+- Consumes: `useNotes()` from `@/contexts/NoteContext` — fields used: `notes: Note[]`, `folders: Folder[]`, `loading: boolean`, `error: string | null`, `setActiveNoteId: (id: string | null) => void`, `expandedFolders: Set<string>`, `toggleFolder: (id: string) => void`, `fetchNotes: () => Promise<void>`, `updateNote: (id, update) => Promise<Note | null>`, `deleteNote: (id) => Promise<boolean>`
+- Consumes: `Note` type from `@/types` — fields used: `_id`, `title`, `content`, `folderId`, `updatedAt` (note: `folderName` is NOT used — folder names are derived from the `folders` array)
 - Produces: nothing consumed by other tasks
 
 **Design — component structure**
 
-The page is one component with three logical sections:
+The page is one component with five logical sections:
 
 1. **Header** — violet clock avatar, "Recent" h1, subtitle, filter `<Input>` (hidden on mobile via `sm:block`)
-2. **Hero card** — most recently edited note (`sortedNotes[0]`), violet accent border, title, 2-line stripped-content preview, bottom metadata row (folder left / timestamp right)
-3. **Grid** — `sortedNotes.slice(1)`, `grid-cols-1 sm:grid-cols-2`, each card has file icon + title + stripped-content preview + same footer row
+2. **Hero card** — most recently edited note (`filteredNotes[0]`), wrapped in `<ContextMenu>`, violet accent border, title, 2-line stripped-content preview, `<NoteFooter>` with folder + timestamp
+3. **Grid** — `filteredNotes.slice(1)`, `grid-cols-1 sm:grid-cols-2`, each card wrapped in `<ContextMenu>`, same footer pattern
+4. **Rename dialog** — `<Dialog>` with an `<Input>` pre-filled with the current title; saves via `updateNote`
+5. **Delete dialog** — `<DeleteConfirmDialog>` confirmation before calling `deleteNote`
+
+**Folder name resolution:** build a `useMemo` map — `new Map(folders.map(f => [f._id, f.name]))` — and look up `note.folderId` at render time. The regular notes API does not populate `note.folderName`.
+
+**Context menu items (same on hero and grid cards):**
+- **Rename** — opens rename dialog pre-filled with current title
+- **Download PDF** — `GET /api/notes/:id/export?format=pdf`, browser download
+- **Move to trash** — opens `DeleteConfirmDialog`, on confirm calls `deleteNote`
 
 **Helper functions (defined inside the file):**
 
@@ -59,6 +68,7 @@ function handleNoteClick(id: string) {
     toggleFolder(note.folderId)
   }
   setActiveNoteId(id)
+  router.push("/")  // editor only renders on /
 }
 ```
 
@@ -68,356 +78,26 @@ function handleNoteClick(id: string) {
 
 **Loading / error states:** mirror the pattern in `HomePage.tsx` — show a centered `<p>` for loading, and a centered error message + "Retry" button that calls `fetchNotes()` for errors.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests** ✓
+- [x] **Step 2: Run tests to confirm they fail** ✓
+- [x] **Step 3: Implement `src/app/recent/page.tsx`** ✓ — see file for final implementation including context menus, rename dialog, and delete dialog added in subsequent commits
+- [x] **Step 4: Run tests to confirm they pass** ✓ — 12/12
+- [x] **Step 5: Run the full test suite to check for regressions** ✓ — 1 pre-existing failure in `note-context.test.tsx` unrelated to this work
+- [x] **Step 6: Smoke-test in the browser** ✓
+- [x] **Step 7: Commit** ✓
+- [x] **Step 8: Push the feature branch** ✓
 
-Create `src/__tests__/recent-page.test.tsx`:
+## Post-Implementation Additions
 
-```tsx
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import React from 'react'
+The following were added after the initial implementation via follow-up commits:
 
-// Mock next/navigation
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+| Commit | Change |
+|--------|--------|
+| `fix: navigate to / when clicking a note` | Added `router.push("/")` to `handleNoteClick` — editor only renders on `/` |
+| `fix: derive folder names from folders context` | `note.folderName` is never set by the notes API; use `folders` from context + a `folderMap` instead |
+| `feat: add right-click context menu` | Rename (dialog), Download PDF, Move to trash on all cards |
+| `fix: remove asChild from ContextMenuTrigger` | `asChild` not supported in Radix v2; removed from `ContextMenuTrigger` |
 
-// Mock NoteContext
-vi.mock('@/contexts/NoteContext', () => ({ useNotes: vi.fn() }))
+> See `src/app/recent/page.tsx` for the complete final implementation.
 
-// Mock lucide-react icons used by the page
-vi.mock('lucide-react', () => ({
-  Clock:    (p: object) => <svg data-testid="icon-Clock" {...p} />,
-  FileText: (p: object) => <svg data-testid="icon-FileText" {...p} />,
-  Folder:   (p: object) => <svg data-testid="icon-Folder" {...p} />,
-  Search:   (p: object) => <svg data-testid="icon-Search" {...p} />,
-}))
 
-import { useNotes } from '@/contexts/NoteContext'
-import RecentPage from '@/app/recent/page'
-
-const mockUseNotes = useNotes as ReturnType<typeof vi.fn>
-
-const NOTE_A = {
-  _id: '1', title: 'Alpha Note', content: '<p>Alpha content</p>',
-  folderId: 'f1', folderName: 'Work',
-  updatedAt: new Date(Date.now() - 60_000).toISOString(),
-  position: 0, createdAt: '', isDeleted: false,
-}
-const NOTE_B = {
-  _id: '2', title: 'Beta Note', content: '<p>Beta content</p>',
-  folderId: undefined, folderName: undefined,
-  updatedAt: new Date(Date.now() - 3_600_000).toISOString(),
-  position: 1, createdAt: '', isDeleted: false,
-}
-
-function baseContext(overrides = {}) {
-  return {
-    notes: [NOTE_B, NOTE_A], // intentionally unsorted — page must sort
-    loading: false,
-    error: null,
-    setActiveNoteId: vi.fn(),
-    expandedFolders: new Set<string>(),
-    toggleFolder: vi.fn(),
-    fetchNotes: vi.fn(),
-    ...overrides,
-  }
-}
-
-beforeEach(() => mockUseNotes.mockReturnValue(baseContext()))
-
-describe('RecentPage', () => {
-  it('renders the page heading', () => {
-    render(<RecentPage />)
-    expect(screen.getByRole('heading', { name: /recent/i })).toBeInTheDocument()
-  })
-
-  it('shows the most recently edited note as the hero card', () => {
-    render(<RecentPage />)
-    // NOTE_A has a more recent updatedAt — it should be the hero
-    const headings = screen.getAllByText('Alpha Note')
-    expect(headings.length).toBeGreaterThan(0)
-  })
-
-  it('shows remaining notes in the grid', () => {
-    render(<RecentPage />)
-    expect(screen.getByText('Beta Note')).toBeInTheDocument()
-  })
-
-  it('strips HTML from content previews', () => {
-    render(<RecentPage />)
-    expect(screen.getByText('Alpha content')).toBeInTheDocument()
-  })
-
-  it('calls setActiveNoteId when a note card is clicked', () => {
-    const setActiveNoteId = vi.fn()
-    mockUseNotes.mockReturnValue(baseContext({ setActiveNoteId }))
-    render(<RecentPage />)
-    fireEvent.click(screen.getAllByText('Alpha Note')[0])
-    expect(setActiveNoteId).toHaveBeenCalledWith('1')
-  })
-
-  it('expands the folder when clicking a note whose folder is collapsed', () => {
-    const toggleFolder = vi.fn()
-    mockUseNotes.mockReturnValue(baseContext({ toggleFolder, expandedFolders: new Set() }))
-    render(<RecentPage />)
-    fireEvent.click(screen.getAllByText('Alpha Note')[0])
-    expect(toggleFolder).toHaveBeenCalledWith('f1')
-  })
-
-  it('shows the empty state when there are no notes', () => {
-    mockUseNotes.mockReturnValue(baseContext({ notes: [] }))
-    render(<RecentPage />)
-    expect(screen.getByText(/no notes yet/i)).toBeInTheDocument()
-  })
-
-  it('filters notes by title when filter input is used', () => {
-    render(<RecentPage />)
-    const input = screen.getByPlaceholderText(/filter notes/i)
-    fireEvent.change(input, { target: { value: 'alpha' } })
-    expect(screen.getByText('Alpha Note')).toBeInTheDocument()
-    expect(screen.queryByText('Beta Note')).not.toBeInTheDocument()
-  })
-
-  it('shows no-match message when filter finds nothing', () => {
-    render(<RecentPage />)
-    const input = screen.getByPlaceholderText(/filter notes/i)
-    fireEvent.change(input, { target: { value: 'zzznomatch' } })
-    expect(screen.getByText(/no notes match/i)).toBeInTheDocument()
-  })
-
-  it('shows a loading state', () => {
-    mockUseNotes.mockReturnValue(baseContext({ loading: true, notes: [] }))
-    render(<RecentPage />)
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
-  })
-
-  it('shows an error state with a retry button', () => {
-    const fetchNotes = vi.fn()
-    mockUseNotes.mockReturnValue(baseContext({ error: 'Failed to load', notes: [], fetchNotes }))
-    render(<RecentPage />)
-    expect(screen.getByText('Failed to load')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /retry/i }))
-    expect(fetchNotes).toHaveBeenCalled()
-  })
-})
-```
-
-- [ ] **Step 2: Run tests to confirm they fail**
-
-```bash
-npx vitest run src/__tests__/recent-page.test.tsx
-```
-
-Expected: multiple FAIL — `RecentPage` still returns the "Coming soon" stub.
-
-- [ ] **Step 3: Implement `src/app/recent/page.tsx`**
-
-Replace the entire file with:
-
-```tsx
-"use client"
-
-import React, { useState, useMemo } from "react"
-import { Clock, FileText, Folder, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { useNotes } from "@/contexts/NoteContext"
-import { Note } from "@/types"
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").trim()
-}
-
-function formatRelativeTime(dateStr: string): string {
-  const now = Date.now()
-  const diff = now - new Date(dateStr).getTime()
-  const s = Math.floor(diff / 1000)
-  if (s < 60) return "just now"
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  if (d < 14) return `${d}d ago`
-  const w = Math.floor(d / 7)
-  if (w < 8) return `${w}w ago`
-  return new Date(dateStr).toLocaleDateString()
-}
-
-function NoteFooter({ note }: { note: Note }) {
-  return (
-    <div className="flex items-center justify-between mt-3 pt-3 border-t">
-      {note.folderName ? (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Folder className="h-3 w-3" />{note.folderName}
-        </span>
-      ) : <span />}
-      <span className="text-xs text-muted-foreground">{formatRelativeTime(note.updatedAt)}</span>
-    </div>
-  )
-}
-
-export default function RecentPage() {
-  const { notes, loading, error, setActiveNoteId, expandedFolders, toggleFolder, fetchNotes } = useNotes()
-  const [filter, setFilter] = useState("")
-
-  const sortedNotes = useMemo(
-    () => [...notes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
-    [notes]
-  )
-
-  const filteredNotes = useMemo(() => {
-    if (!filter.trim()) return sortedNotes
-    const q = filter.toLowerCase()
-    return sortedNotes.filter(n => n.title.toLowerCase().includes(q))
-  }, [sortedNotes, filter])
-
-  function handleNoteClick(id: string) {
-    const note = notes.find(n => n._id === id)
-    if (note?.folderId && !expandedFolders.has(note.folderId)) {
-      toggleFolder(note.folderId)
-    }
-    setActiveNoteId(id)
-  }
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-destructive">{error}</p>
-          <Button variant="outline" onClick={() => fetchNotes()}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
-
-  const [hero, ...rest] = filteredNotes
-
-  return (
-    <div className="py-2 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
-            <Clock className="size-5 text-violet-500" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Recent</h1>
-            <p className="text-xs text-muted-foreground">Your most recently edited notes</p>
-          </div>
-        </div>
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            placeholder="Filter notes..."
-            className="pl-8 h-8 text-sm w-44"
-          />
-        </div>
-      </div>
-
-      {/* Empty state */}
-      {filteredNotes.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-12">
-          {notes.length === 0
-            ? "No notes yet. Create your first note to see it here."
-            : "No notes match your search."}
-        </p>
-      )}
-
-      {/* Hero card */}
-      {hero && (
-        <div
-          onClick={() => handleNoteClick(hero._id)}
-          className="p-5 rounded-xl border-2 border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-900/10 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors cursor-pointer"
-        >
-          <p className="font-semibold text-base">{hero.title || "Untitled"}</p>
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-            {stripHtml(hero.content) || "No content"}
-          </p>
-          <NoteFooter note={hero} />
-        </div>
-      )}
-
-      {/* Grid */}
-      {rest.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {rest.map(note => (
-            <div
-              key={note._id}
-              onClick={() => handleNoteClick(note._id)}
-              className="flex flex-col gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-start gap-3">
-                <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{note.title || "Untitled"}</p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {stripHtml(note.content) || "No content"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pl-7">
-                {note.folderName ? (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Folder className="h-3 w-3" />{note.folderName}
-                  </span>
-                ) : <span />}
-                <span className="text-xs text-muted-foreground">{formatRelativeTime(note.updatedAt)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-```
-
-- [ ] **Step 4: Run tests to confirm they pass**
-
-```bash
-npx vitest run src/__tests__/recent-page.test.tsx
-```
-
-Expected: all tests PASS.
-
-- [ ] **Step 5: Run the full test suite to check for regressions**
-
-```bash
-npx vitest run
-```
-
-Expected: all pre-existing tests still pass.
-
-- [ ] **Step 6: Smoke-test in the browser**
-
-Visit `http://localhost:3000` → click "View all" in the Recent Notes section → verify:
-- Lands on `/recent`
-- Most recently edited note appears as the large hero card
-- Remaining notes fill the 2-column grid
-- Folder names appear in the footer of each card
-- Typing in the filter input narrows the list
-- Clicking any card opens it in the editor
-- Mobile viewport (resize to <640px): grid collapses to 1 column, filter input hides
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add src/app/recent/page.tsx src/__tests__/recent-page.test.tsx
-git commit -m "feat: implement Recent page with Magazine/Hero layout"
-```
-
-- [ ] **Step 8: Push the feature branch**
-
-```bash
-git push origin feature/recent-page
-```
