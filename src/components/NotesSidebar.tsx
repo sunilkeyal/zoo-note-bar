@@ -36,6 +36,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { stripHtml } from "@/lib/utils"
 import { Folder, Note } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -286,8 +287,12 @@ export default function NotesSidebar() {
 
 
 
+  const query = search.toLowerCase()
   const filtered = search
-    ? notes.filter((n) => n.title.toLowerCase().includes(search.toLowerCase()))
+    ? notes.filter((n) =>
+        n.title.toLowerCase().includes(query) ||
+        stripHtml(n.content).toLowerCase().includes(query)
+      )
     : notes
 
   const handleCreate = async () => {
@@ -550,7 +555,16 @@ export default function NotesSidebar() {
               <Button
                 isActive={activeNoteId === note._id}
                 className={asRootItem ? "data-active:font-normal" : undefined}
-                onClick={() => { setActiveNoteId(note._id); setActiveFolderId(null); if (pathname !== "/") router.push("/") }}
+                onClick={() => {
+  setActiveNoteId(note._id)
+  setActiveFolderId(null)
+  const searchParam = search ? `?q=${encodeURIComponent(search)}` : ""
+  if (pathname !== "/") {
+    router.push(`/${searchParam}`)
+  } else {
+    router.push(`${pathname}${searchParam}`)
+  }
+}}
                 onDoubleClick={() => startRenaming(note._id, note.title)}
               >
                 {note.isFavorite && (
