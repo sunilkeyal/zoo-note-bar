@@ -7,10 +7,14 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import AppHeader from "@/components/AppHeader"
 import NotesSidebar from "@/components/NotesSidebar"
 import MainArea from "@/components/MainArea"
+import HomePage from "@/components/HomePage"
+import { useNotes } from "@/contexts/NoteContext"
 
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
+
+  const { activeNoteId } = useNotes()
 
   React.useEffect(() => {
     if (status === "unauthenticated") {
@@ -27,7 +31,7 @@ export default function Home() {
       <NotesSidebar />
       <SidebarInset className="overflow-hidden">
         <AppHeader />
-        <MainArea />
+        {activeNoteId ? <MainArea /> : <HomePage />}
       </SidebarInset>
     </SidebarProvider>
   )

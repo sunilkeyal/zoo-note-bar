@@ -210,13 +210,7 @@ export default function MainArea() {
     }
   }, [editor])
 
-  if (!activeNote) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Select a note or create a new one</p>
-      </div>
-    )
-  }
+  if (!activeNote) return null
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
