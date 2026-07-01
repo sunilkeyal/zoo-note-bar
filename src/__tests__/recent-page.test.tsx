@@ -8,20 +8,44 @@ const mockRouterPush = vi.fn()
 
 vi.mock('@/contexts/NoteContext', () => ({ useNotes: vi.fn() }))
 
-vi.mock('lucide-react', () => ({
-  Clock:    (p: object) => React.createElement('svg', { 'data-testid': 'icon-Clock', ...p }),
-  FileText: (p: object) => React.createElement('svg', { 'data-testid': 'icon-FileText', ...p }),
-  Folder:   (p: object) => React.createElement('svg', { 'data-testid': 'icon-Folder', ...p }),
-  Search:   (p: object) => React.createElement('svg', { 'data-testid': 'icon-Search', ...p }),
-}))
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>()
+  return { ...actual }
+})
 
 vi.mock('@/components/ui/input', () => ({
   Input: (p: React.InputHTMLAttributes<HTMLInputElement>) => React.createElement('input', p),
 }))
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) =>
-    React.createElement('button', { onClick }, children),
+  Button: ({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) =>
+    React.createElement('button', { onClick, disabled }, children),
+}))
+
+vi.mock('@/components/ui/context-menu', () => ({
+  ContextMenu: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
+  ContextMenuTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => React.createElement(React.Fragment, null, children),
+  ContextMenuContent: ({ children }: { children: React.ReactNode }) => null,
+  ContextMenuItem: ({ children }: { children: React.ReactNode; onClick?: () => void }) => null,
+  ContextMenuSeparator: () => null,
+}))
+
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
+    open ? React.createElement(React.Fragment, null, children) : null,
+  DialogContent: ({ children }: { children: React.ReactNode }) =>
+    React.createElement('div', { 'data-testid': 'dialog-content' }, children),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => React.createElement('h2', null, children),
+  DialogFooter: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
+}))
+
+vi.mock('@/components/DeleteConfirmDialog', () => ({
+  default: ({ open, onClose, onConfirm }: { open: boolean; onClose: () => void; onConfirm: () => void }) =>
+    open ? React.createElement('div', { 'data-testid': 'delete-dialog' },
+      React.createElement('button', { onClick: onConfirm }, 'Delete'),
+      React.createElement('button', { onClick: onClose }, 'Cancel'),
+    ) : null,
 }))
 
 import { useNotes } from '@/contexts/NoteContext'
@@ -54,6 +78,8 @@ function baseContext(overrides = {}) {
     expandedFolders: new Set<string>(),
     toggleFolder: vi.fn(),
     fetchNotes: vi.fn(),
+    updateNote: vi.fn().mockResolvedValue(null),
+    deleteNote: vi.fn().mockResolvedValue(true),
     ...overrides,
   }
 }
