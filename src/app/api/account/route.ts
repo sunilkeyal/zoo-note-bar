@@ -46,7 +46,12 @@ export async function PATCH(request: NextRequest) {
   }
 
   const db = await connectToDatabase()
-  const userId = new ObjectId(session.user.id)
+  let userId: ObjectId
+  try {
+    userId = new ObjectId(session.user.id)
+  } catch {
+    return NextResponse.json({ error: "Invalid session." }, { status: 400 })
+  }
   const user = await db.collection("users").findOne({ _id: userId })
 
   if (!user) {

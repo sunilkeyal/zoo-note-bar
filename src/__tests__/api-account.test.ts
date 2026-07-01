@@ -183,4 +183,41 @@ describe("PATCH /api/account", () => {
     const body = await res.json()
     expect(body.changed).toEqual([])
   })
+
+  it("updates name and email together and returns both in changed", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "507f1f77bcf86cd799439011", name: "Old", email: "old@example.com" } } as any)
+    mockFindOne
+      .mockResolvedValueOnce({ _id: "507f1f77bcf86cd799439011", displayName: "Old Name", email: "old@example.com", passwordHash: "hash" })
+      .mockResolvedValueOnce(null) // email uniqueness check
+    mockUpdateOne.mockResolvedValue({ modifiedCount: 1 })
+
+    const { PATCH } = await import("@/app/api/account/route")
+    const req = new Request("http://localhost/api/account", {
+      method: "PATCH",
+      body: JSON.stringify({ name: "New Name", email: "new@example.com" }),
+    })
+    const res = await PATCH(req as any)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.changed).toContain("name")
+    expect(body.changed).toContain("email")
+    expect(body.changed).toHaveLength(2)
+  })
+
+  it("returns 404 when user is not found in database", async () => {
+    const { auth } = await import("@/lib/auth")
+    vi.mocked(auth).mockResolvedValue({ user: { id: "507f1f77bcf86cd799439011", name: "Old", email: "old@example.com" } } as any)
+    mockFindOne.mockResolvedValue(null) // user not found
+
+    const { PATCH } = await import("@/app/api/account/route")
+    const req = new Request("http://localhost/api/account", {
+      method: "PATCH",
+      body: JSON.stringify({ name: "New Name" }),
+    })
+    const res = await PATCH(req as any)
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error).toBe("User not found.")
+  })
 })
