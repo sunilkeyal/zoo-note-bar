@@ -120,7 +120,7 @@ db.notes.createIndex({ userId: 1, isFavorite: 1, favoritedAt: -1 })
 | `src/components/NotesSidebar.tsx` | Add Favorites nav item with count badge |
 | `src/components/HomePage.tsx` | Replace placeholder favorites section |
 | `src/app/favorites/page.tsx` | Replace placeholder with full favorites page |
-| `src/app/favorites/layout.tsx` | Verify layout matches Recent page pattern |
+| `src/app/favorites/layout.tsx` | Layout matches Recent page pattern (identical) ✅ |
 | `src/components/ui/context-menu.tsx` | No changes needed (already generic) |
 
 ### Context menu locations to update
@@ -138,6 +138,10 @@ db.notes.createIndex({ userId: 1, isFavorite: 1, favoritedAt: -1 })
 - API returns 401 if unauthenticated, 404 if note not found or not owned by user
 - Optimistic update reverts on API failure (network error, server error)
 - Star icon remains responsive during update (disabled state while syncing not required)
+
+### Bugfix — PUT note response missing favorite fields
+
+When editing a favorited note's content/title in the detail editor, `updateNote` replaces the note in state with the `PUT /api/notes/[id]` response, which was missing `isFavorite` and `favoritedAt`. Fixed by adding those fields to the response object in `src/app/api/notes/[id]/route.ts`.
 
 ---
 

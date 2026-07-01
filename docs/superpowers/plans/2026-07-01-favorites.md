@@ -1,6 +1,6 @@
 # Favorites Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add favorites system with star toggle, context menu, home section, and favorites page.
 
@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `src/types/index.ts:12-24`
 
-- [ ] **Step 1: Add `isFavorite` and `favoritedAt` to Note interface**
+- [x] **Step 1: Add `isFavorite` and `favoritedAt` to Note interface**
 
 ```typescript
 export interface Note {
@@ -35,7 +35,7 @@ export interface Note {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/types/index.ts
@@ -49,7 +49,7 @@ git commit -m "feat: add isFavorite and favoritedAt fields to Note type"
 **Files:**
 - Modify: `src/lib/mongodb.ts:33-36`
 
-- [ ] **Step 1: Add compound index after existing notes indexes**
+- [x] **Step 1: Add compound index after existing notes indexes**
 
 ```typescript
   await cachedDb.collection("notes").createIndex(
@@ -58,7 +58,7 @@ git commit -m "feat: add isFavorite and favoritedAt fields to Note type"
   ).catch(() => {});
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/lib/mongodb.ts
@@ -72,7 +72,7 @@ git commit -m "feat: add compound index for favorites queries"
 **Files:**
 - Create: `src/app/api/notes/[id]/favorite/route.ts`
 
-- [ ] **Step 1: Create the favorite toggle API route**
+- [x] **Step 1: Create the favorite toggle API route**
 
 ```typescript
 import { NextRequest, NextResponse } from "next/server"
@@ -146,7 +146,7 @@ export async function PATCH(
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/app/api/notes/[id]/favorite/route.ts
@@ -160,25 +160,29 @@ git commit -m "feat: add PATCH /api/notes/[id]/favorite endpoint"
 **Files:**
 - Modify: `src/contexts/NoteContext.tsx`
 
-- [ ] **Step 1: Add `toggleFavorite` to the context interface (after `deleteNote`)**
+- [x] **Step 1: Add `toggleFavorite` to the context interface (after `deleteNote`)**
 
 ```typescript
   toggleFavorite: (id: string) => Promise<Note | null>;
 ```
 
-- [ ] **Step 2: Add `favoriteNotes` to the context interface (after `deleteNote` line)**
+- [x] **Step 2: Add `favoriteNotes` to the context interface (after `deleteNote` line)**
 
 ```typescript
   favoriteNotes: Note[];
 ```
 
-- [ ] **Step 3: Add `toggleFavorite` implementation (after `deleteNote` function, before `createFolder`)**
+- [x] **Step 3: Add `toggleFavorite` implementation (after `deleteNote` function, before `createFolder`)**  
+  *(Implementation uses closure-based revert: saves `originalNote` before optimistic update, restores it verbatim on failure — preserves exact `favoritedAt`)*
 
 ```typescript
   const toggleFavorite = useCallback(async (id: string): Promise<Note | null> => {
-    // Optimistic update
-    setNotes((prev) =>
-      prev.map((n) => {
+    // Save original note state for revert
+    let originalNote: Note | undefined
+    setNotes((prev) => {
+      const original = prev.find((n) => n._id === id)
+      if (original) originalNote = original
+      return prev.map((n) => {
         if (n._id !== id) return n
         const isCurrentlyFavorite = !!n.isFavorite
         return {
@@ -187,7 +191,7 @@ git commit -m "feat: add PATCH /api/notes/[id]/favorite endpoint"
           favoritedAt: !isCurrentlyFavorite ? new Date().toISOString() : undefined,
         }
       })
-    )
+    })
     try {
       const res = await fetch(`/api/notes/${id}/favorite`, { method: 'PATCH' })
       const json: ApiResponse<Note> = await res.json()
@@ -195,53 +199,37 @@ git commit -m "feat: add PATCH /api/notes/[id]/favorite endpoint"
         setNotes((prev) => sortByPosition(prev.map((n) => (n._id === id ? json.data! : n))))
         return json.data
       }
-      // Revert on failure
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n._id !== id) return n
-          const wasFavorite = !n.isFavorite
-          return {
-            ...n,
-            isFavorite: wasFavorite,
-            favoritedAt: wasFavorite ? new Date().toISOString() : undefined,
-          }
-        })
-      )
+      // Revert on API failure
+      if (originalNote) {
+        setNotes((prev) => prev.map((n) => (n._id === id ? originalNote! : n)))
+      }
       return null
     } catch {
       // Revert on network error
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n._id !== id) return n
-          const wasFavorite = !n.isFavorite
-          return {
-            ...n,
-            isFavorite: wasFavorite,
-            favoritedAt: wasFavorite ? new Date().toISOString() : undefined,
-          }
-        })
-      )
+      if (originalNote) {
+        setNotes((prev) => prev.map((n) => (n._id === id ? originalNote! : n)))
+      }
       return null
     }
   }, [])
 ```
 
-- [ ] **Step 4: Add `favoriteNotes` memoized value (after the `activeNote` line)**
+- [x] **Step 4: Add `favoriteNotes` memoized value (after the `activeNote` line)**
 
 ```typescript
   const favoriteNotes = useMemo(
     () => notes
       .filter((n) => n.isFavorite)
       .sort((a, b) => {
-        const aTime = a.favoritedAt ? new Date(a.favoritedAt).getTime() : 0
-        const bTime = b.favoritedAt ? new Date(b.favoritedAt).getTime() : 0
+        const aTime = a.favoritedAt ? new Date(a.favoritedAt).getTime() : new Date(a.updatedAt).getTime()
+        const bTime = b.favoritedAt ? new Date(b.favoritedAt).getTime() : new Date(b.updatedAt).getTime()
         return bTime - aTime
       }),
     [notes]
   )
 ```
 
-- [ ] **Step 5: Add `toggleFavorite` and `favoriteNotes` to the context value**
+- [x] **Step 5: Add `toggleFavorite` and `favoriteNotes` to the context value**
 
 ```typescript
   const value = useMemo<NoteContextValue>(() => ({
@@ -257,7 +245,7 @@ git commit -m "feat: add PATCH /api/notes/[id]/favorite endpoint"
 
 Add `toggleFavorite` to the dependency arrays in both the value creation and the useMemo deps array.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/contexts/NoteContext.tsx
@@ -266,12 +254,22 @@ git commit -m "feat: add toggleFavorite and favoriteNotes to NoteContext"
 
 ---
 
+### Bugfix: Include `isFavorite`/`favoritedAt` in PUT note response
+
+**Discovered during:** editing a favorited note in the detail editor removed it from the favorites list.
+
+**Root cause:** `PUT /api/notes/[id]` response at `src/app/api/notes/[id]/route.ts:79` omitted `isFavorite` and `favoritedAt`. Since `updateNote` replaces the note in state wholesale with the API response, those fields got erased.
+
+**Fix:** Added `isFavorite: result.isFavorite ?? false` and `favoritedAt: result.favoritedAt?.toISOString()` to the response object.
+
+---
+
 ### Task 5: Add count badge to sidebar Favorites nav item
 
 **Files:**
 - Modify: `src/components/NotesSidebar.tsx:721-726`
 
-- [ ] **Step 1: Import `useNotes` is already imported. Add favorite count badge to Favorites nav button**
+- [x] **Step 1: Import `useNotes` is already imported. Add favorite count badge to Favorites nav button**
 
 ```tsx
                 <SidebarMenuItem>
@@ -287,7 +285,7 @@ git commit -m "feat: add toggleFavorite and favoriteNotes to NoteContext"
                 </SidebarMenuItem>
 ```
 
-- [ ] **Step 2: Destructure `favoriteNotes` from `useNotes()` near line 265**
+- [x] **Step 2: Destructure `favoriteNotes` from `useNotes()` near line 265**
 
 ```typescript
     notes, folders, expandedFolders, createNote, deleteNote, updateNote,
@@ -296,7 +294,7 @@ git commit -m "feat: add toggleFavorite and favoriteNotes to NoteContext"
   } = useNotes()
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/NotesSidebar.tsx
@@ -310,9 +308,9 @@ git commit -m "feat: add favorite count badge to sidebar Favorites nav item"
 **Files:**
 - Modify: `src/components/NotesSidebar.tsx:557-568`
 
-- [ ] **Step 1: Add `toggleFavorite` to destructured values** (already done in Task 5)
+- [x] **Step 1: Add `toggleFavorite` to destructured values** (already done in Task 5)
 
-- [ ] **Step 2: Insert favorite toggle item between "Download PDF" and the separator**
+- [x] **Step 2: Insert favorite toggle item between "Download PDF" and the separator**
 
 ```tsx
               <ContextMenuItem onClick={(e) => { e.stopPropagation(); toggleFavorite(note._id) }}>
@@ -347,7 +345,7 @@ Full context menu after change:
             </ContextMenuContent>
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/NotesSidebar.tsx
@@ -361,13 +359,13 @@ git commit -m "feat: add favorite toggle to sidebar note context menu"
 **Files:**
 - Modify: `src/components/HomePage.tsx`
 
-- [ ] **Step 1: Import `Star` icon (already imported), add `toggleFavorite` and `favoriteNotes` from `useNotes()`**
+- [x] **Step 1: Import `Star` icon (already imported), add `toggleFavorite` and `favoriteNotes` from `useNotes()`**
 
 ```typescript
   const { notes, loading, error, setActiveNoteId, createNote, fetchNotes, expandedFolders, toggleFolder, toggleFavorite, favoriteNotes } = useNotes()
 ```
 
-- [ ] **Step 2: Add clickable star to note cards in NoteSection. Update the note card div inside NoteSection to include a star button**
+- [x] **Step 2: Add clickable star to note cards in NoteSection. Update the note card div inside NoteSection to include a star button**
 
 Update the NoteSection to accept an `onToggleFavorite` prop and show the star:
 
@@ -413,7 +411,7 @@ In the note card inside NoteSection, add the star:
           ))}
 ```
 
-- [ ] **Step 3: Pass `favoriteNotes.slice(0, 5)` to the Favorites section and wire toggle**
+- [x] **Step 3: Pass `favoriteNotes.slice(0, 5)` to the Favorites section and wire toggle**
 
 ```tsx
           <NoteSection
@@ -429,7 +427,7 @@ In the note card inside NoteSection, add the star:
 
 Update both mobile and desktop sections (lines 186-193 and 206-213).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/HomePage.tsx
@@ -438,24 +436,24 @@ git commit -m "feat: add clickable star icons to note cards and wire favorites s
 
 ---
 
-### Task 8: Add favorite toggle to Recent page context menus
+### Task 8: Add favorite toggle to Recent page (star icons + context menus)
 
 **Files:**
 - Modify: `src/app/recent/page.tsx`
 
-- [ ] **Step 1: Import `Star` from lucide-react**
+- [x] **Step 1: Import `Star` from lucide-react**
 
 ```typescript
 import { Clock, FileText, Folder, Search, Pencil, File, Trash2, Star } from "lucide-react"
 ```
 
-- [ ] **Step 2: Destructure `toggleFavorite` from `useNotes()`**
+- [x] **Step 2: Destructure `toggleFavorite` from `useNotes()`**
 
 ```typescript
   const { notes, folders, loading, error, setActiveNoteId, expandedFolders, toggleFolder, fetchNotes, updateNote, deleteNote, toggleFavorite } = useNotes()
 ```
 
-- [ ] **Step 3: Add favorite toggle to hero card context menu (after Download PDF)**
+- [x] **Step 3: Add favorite toggle to hero card context menu (after Download PDF)**
 
 ```tsx
             <ContextMenuItem onClick={() => toggleFavorite(hero._id)}>
@@ -467,9 +465,9 @@ import { Clock, FileText, Folder, Search, Pencil, File, Trash2, Star } from "luc
             </ContextMenuItem>
 ```
 
-- [ ] **Step 4: Add favorite toggle to grid card context menu (after Download PDF, same markup as hero)**
+- [x] **Step 4: Add favorite toggle to grid card context menu (after Download PDF, same markup as hero)**
 
-- [ ] **Step 5: Add clickable star to hero card**
+- [x] **Step 5: Add clickable star to hero card**
 
 ```tsx
               <div className="flex items-center justify-between">
@@ -483,7 +481,7 @@ import { Clock, FileText, Folder, Search, Pencil, File, Trash2, Star } from "luc
               </div>
 ```
 
-- [ ] **Step 6: Add clickable star to grid cards**
+- [x] **Step 6: Add clickable star to grid cards**
 
 ```tsx
                   <div className="flex items-start gap-3">
@@ -503,7 +501,7 @@ import { Clock, FileText, Folder, Search, Pencil, File, Trash2, Star } from "luc
                   </div>
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/app/recent/page.tsx
@@ -517,7 +515,7 @@ git commit -m "feat: add favorite toggle to recent page context menus and star i
 **Files:**
 - Modify: `src/app/favorites/page.tsx`
 
-- [ ] **Step 1: Replace placeholder with full favorites page (same pattern as Recent page)**
+- [x] **Step 1: Replace placeholder with full favorites page (same pattern as Recent page)**
 
 ```typescript
 "use client"
@@ -834,7 +832,7 @@ export default function FavoritesPage() {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/app/favorites/page.tsx
