@@ -91,9 +91,9 @@ describe('MainArea', () => {
     } as ReturnType<typeof vi.fn>)
   })
 
-  it('shows placeholder text when no note is selected', () => {
-    render(<MainArea />)
-    expect(screen.getByText('Select a note or create a new one')).toBeInTheDocument()
+  it('renders nothing when no note is selected (home page handles this)', () => {
+    const { container } = render(<MainArea />)
+    expect(container.innerHTML).toBe('')
   })
 
   it('renders editor toolbar and title when a note is active', () => {
