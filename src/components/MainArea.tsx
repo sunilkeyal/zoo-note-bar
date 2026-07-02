@@ -183,6 +183,45 @@ export default function MainArea() {
     if (activeNote) setTitle(activeNote.title)
   }, [activeNote?._id, activeNote?.title])
 
+  useEffect(() => {
+    if (!editor || !activeNote) return
+
+    const params = new URLSearchParams(window.location.search)
+    const query = params.get("q")
+
+    editor.chain().focus().unsetHighlight().run()
+
+    if (!query || !query.trim()) return
+
+    const lowerQuery = query.toLowerCase()
+    const doc = editor.state.doc
+    const markType = editor.schema.marks.highlight
+    if (!markType) return
+
+    const tr = editor.state.tr
+    let hasMatches = false
+
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text) {
+        const text = node.text
+        const lowerText = text.toLowerCase()
+        let startIdx = 0
+        while ((startIdx = lowerText.indexOf(lowerQuery, startIdx)) !== -1) {
+          const from = pos + startIdx
+          const to = from + lowerQuery.length
+          tr.addMark(from, to, markType.create({ color: "#fff9c4" }))
+          startIdx += lowerQuery.length
+          hasMatches = true
+        }
+      }
+      return true
+    })
+
+    if (hasMatches) {
+      editor.view.dispatch(tr)
+    }
+  }, [editor, activeNote?._id])
+
   const handleTitleChange = useCallback((id: string, value: string) => {
     setTitle(value)
     if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current)

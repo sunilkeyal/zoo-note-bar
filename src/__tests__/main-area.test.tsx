@@ -32,6 +32,27 @@ vi.mock('@tiptap/react', () => {
     getAttributes: vi.fn(() => ({})),
     getHTML: vi.fn(() => '<p>test content</p>'),
     commands: { setContent: vi.fn() },
+    state: {
+      doc: {
+        descendants: vi.fn((cb) => {
+          cb({ isText: true, text: 'test content' }, 0)
+          return true
+        }),
+      },
+      tr: {
+        addMark: vi.fn(),
+      },
+    },
+    view: {
+      dispatch: vi.fn(),
+    },
+    schema: {
+      marks: {
+        highlight: {
+          create: vi.fn(() => ({})),
+        },
+      },
+    },
   }
   return {
     useEditor: vi.fn(() => mockEditor),
@@ -149,5 +170,19 @@ describe('MainArea', () => {
     render(<MainArea />)
 
     expect(screen.getByTestId('note-editor')).toBeInTheDocument()
+  })
+
+  it('renders with search query parameter without crashing', () => {
+    const originalLocation = window.location
+    delete (window as any).location
+    window.location = { ...originalLocation, search: '?q=test' }
+    
+    const mockNotes = { activeNote: createActiveNote(), loading: false }
+    ;(useNotes as ReturnType<typeof vi.fn>).mockReturnValue(mockNotes)
+    
+    render(<MainArea />)
+    expect(screen.getByTestId('note-editor')).toBeDefined()
+    
+    window.location = originalLocation
   })
 })
